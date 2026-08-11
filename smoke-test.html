@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>smoke</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand"><span class="brand-mark">◎</span> Cadence</div>
+    <div class="topbar-right">
+      <div class="profile-switch">
+        <button id="profileBtn" class="profile-btn"><span id="profileAvatar" class="avatar">🙂</span><span id="profileName">—</span></button>
+        <div id="profileMenu" class="menu" hidden></div>
+      </div>
+      <button id="themeBtn" class="icon-btn">◐</button>
+    </div>
+  </div>
+  <nav class="wrap tabs" id="tabs">
+    <button class="tab is-active" data-view="today">Today</button>
+    <button class="tab" data-view="journal">Journal</button>
+    <button class="tab" data-view="trends">Trends</button>
+    <button class="tab" data-view="calendar">Calendar</button>
+    <button class="tab" data-view="settings">Settings</button>
+  </nav>
+</header>
+<main class="wrap" id="view"></main>
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="importFile" hidden>
+<script>
+// Stash any real data before the app boots, and put it back when the run ends —
+// this page writes to the same localStorage key the app uses.
+window.__saved = localStorage.getItem('cadence.v1');
+localStorage.removeItem('cadence.v1');
+window.addEventListener('unload', restore);
+function restore(){
+  if (window.__saved === null) localStorage.removeItem('cadence.v1');
+  else localStorage.setItem('cadence.v1', window.__saved);
+}
+window.__errs=[];window.onerror=(m,s,l)=>{window.__errs.push(m+' @'+l)};
+window.confirm=()=>true; window.prompt=()=>'Tester';
+</script>
+<script src="app.js"></script>
+<script>
+const out=[]; const ok=(n,c,d)=>out.push((c?'PASS':'FAIL')+' — '+n+(d&&!c?'  ['+d+']':''));
+const click=el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+const q=s=>document.querySelector(s), qq=s=>[...document.querySelectorAll(s)];
+const score=()=>q('#ringVal')?q('#ringVal').textContent:'?';
+// Select tabs by name, not index — the nav gains tabs over time.
+const tab=v=>click(q('.tab[data-view="'+v+'"]'));
+const type=(el,v)=>{el.value=v; el.dispatchEvent(new Event('input',{bubbles:true}));};
+
+// --- today: bool toggle
+const tog=q('.toggle'); click(tog);
+ok('bool toggle flips on', q('.toggle').getAttribute('aria-pressed')==='true');
+ok('day score rises after toggle', score()!=='—' && score()!=='0%', 'score='+score());
+const after1=score();
+
+// --- number input, live update, no re-render (focus kept)
+const num=q('input[data-kind="num"]'); num.focus();
+num.value='8'; num.dispatchEvent(new Event('input',{bubbles:true}));
+ok('number input keeps focus while typing', document.activeElement===num);
+ok('number row scores 100%', num.closest('.metric').querySelector('.m-score').textContent==='100%',
+   num.closest('.metric').querySelector('.m-score').textContent);
+ok('day score rose again', score()!==after1, 'was '+after1+' now '+score());
+
+// --- over-target clamps at 100
+num.value='99'; num.dispatchEvent(new Event('input',{bubbles:true}));
+ok('over-target clamps to 100%', num.closest('.metric').querySelector('.m-score').textContent==='100%');
+
+// --- scale
+const s8=q('.scale button[data-val="8"]'); click(s8);
+ok('scale selects 8', q('.scale button[data-val="8"]').classList.contains('on'));
+ok('scale 8 scores 80%', q('.scale').closest('.metric').querySelector('.m-score').textContent==='80%',
+   q('.scale').closest('.metric').querySelector('.m-score').textContent);
+click(q('.scale button[data-val="8"]'));
+ok('clicking 8 again clears it', !q('.scale button[data-val="8"]').classList.contains('on'));
+
+// --- no duplicate listeners: toggle twice returns to off
+const t2=q('.toggle'); click(t2); click(q('.toggle'));
+ok('toggle off/on is not double-firing', q('.toggle').getAttribute('aria-pressed')==='true');
+
+// --- segmented ring: one arc per category, live-updating
+// NB: every render() replaces #view, so re-query after any click — a stale reference
+// is detached and its events never reach the delegated listener.
+const seg=id=>q('.seg-fill[data-seg="'+id+'"]').getAttribute('stroke-dasharray');
+ok('ring draws one arc per category', qq('.seg-fill').length===5, 'arcs='+qq('.seg-fill').length);
+ok('each arc is coloured by its category', new Set(qq('.seg-fill').map(a=>a.getAttribute('stroke'))).size===5);
+const n1=q('input[data-kind="num"]'), sid=n1.dataset.set;
+type(n1,'99'); const segFull=seg(sid);
+type(n1,'2');  const segSmall=seg(sid);
+ok('arc shrinks when its value drops', parseFloat(segSmall)<parseFloat(segFull), segFull+' -> '+segSmall);
+type(n1,'99');
+ok('arc grows back', seg(sid)===segFull);
+
+// weight decides how much of the circle a category owns
+tab('settings');
+click(qq('[data-edit]')[1]);
+const wIn=q('[data-f="weight"]'); wIn.value='3'; wIn.dispatchEvent(new Event('change',{bubbles:true}));
+click(q('[data-done]')); tab('today');
+ok('arcs are sized by weight', (()=>{
+  const w=qq('.seg-track').map(t=>parseFloat(t.getAttribute('stroke-dasharray')));
+  return Math.max(...w) > Math.min(...w)*2;
+})(), qq('.seg-track').map(t=>Math.round(parseFloat(t.getAttribute('stroke-dasharray')))).join('/'));
+
+// --- "one thing left" nudge
+ok('nudge names an unfinished category', !!q('#nudge') && q('#nudge').textContent.includes('Biggest win left'), q('#nudge')&&q('#nudge').textContent);
+click(q('#nudge'));
+ok('clicking the nudge focuses that row', !!document.activeElement.closest('.metric'));
+// finish everything -> the nudge turns into the done state
+qq('input[data-kind="num"]').forEach(i=>type(i,'999'));
+if(q('.toggle').getAttribute('aria-pressed')!=='true') click(q('.toggle'));
+click(q('.scale button[data-val="10"]'));
+ok('a perfect day scores 100%', score()==='100%', score());
+ok('nudge switches to the done state', q('#nudge').classList.contains('done'), q('#nudge').textContent);
+
+// --- sparkline needs more than one logged day
+ok('sparkline holds off on a single day', !q('.spark') && !!q('.spark-empty'));
+click(q('[data-day="-1"]')); click(q('.toggle'));   // log yesterday too
+click(q('[data-day="today"]'));
+ok('sparkline appears once there is a trend', !!q('.spark'), q('#view').innerHTML.includes('spark-empty')?'still empty':'?');
+ok('sparkline is scaled to the data', /last 14 days · \d+–\d+%/.test(q('.spark-cap').textContent), q('.spark-cap')&&q('.spark-cap').textContent);
+
+// --- notes persist through a view round-trip
+q('#note').value='hello'; q('#note').dispatchEvent(new Event('input',{bubbles:true}));
+
+// --- date nav
+const before=q('.day-meta h1').textContent;
+click(q('[data-day="-1"]'));
+ok('back a day', q('.day-meta h1').textContent==='Yesterday', q('.day-meta h1').textContent);
+click(q('[data-day="today"]'));
+ok('jump to today', q('.day-meta h1').textContent==='Today');
+ok('note survived navigation', q('#note').value==='hello', JSON.stringify(q('#note').value));
+
+// --- close the day: a ritual and a stat, never a lock
+const scoreBeforeClose=score();
+ok('an open day offers a finish line', !!q('[data-close]'));
+click(q('[data-close]'));
+ok('closing marks the day', !!q('.pill.closed') && !!q('[data-reopen]'));
+ok('closing is persisted', localStorage.getItem('cadence.v1').includes('closedAt'));
+ok('closing leaves the score alone', score()===scoreBeforeClose, scoreBeforeClose+' -> '+score());
+ok('a closed day is still editable', !q('.metric input[disabled]') && !q('.toggle[disabled]'));
+click(q('[data-reopen]'));
+ok('reopening clears the stamp', !!q('[data-close]') && !q('.pill.closed'));
+ok('reopening is persisted', !localStorage.getItem('cadence.v1').includes('closedAt'));
+// closing a day with nothing written asks for a line
+click(q('[data-day="-1"]'));
+click(q('[data-close]'));
+ok('closing an unwritten day puts the caret in the journal box', document.activeElement===q('#note'));
+click(q('[data-day="today"]')); click(q('[data-close]'));
+ok('two days closed', qq('[data-reopen]').length===1);
+
+// --- views render
+tab('trends');
+ok('trends renders chart', !!q('svg.chart') && q('#view').textContent.includes('average efficiency'));
+click(q('[data-range="7"]'));
+ok('range switch works', q('#view').textContent.includes('last 7 days'));
+
+// --- chart crosshair
+const hover=f=>{const s=q('svg.chart'), b=s.getBoundingClientRect();
+  s.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:b.left+b.width*f,clientY:b.top+b.height/2}));};
+hover(0.99);
+ok('hovering the chart shows a tooltip', !q('#chartTip').hidden && q('#chartTip').textContent.includes('Overall'),
+   q('#chartTip').hidden?'hidden':q('#chartTip').textContent);
+ok('the crosshair follows the pointer', !q('#crosshair').hidden);
+ok('the right-hand edge reads as today', q('#chartTip').textContent.includes('Today'), q('#chartTip').textContent);
+const tipX=q('#chartTip').style.left;
+hover(0.05);
+ok('tooltip moves with the pointer', q('#chartTip').style.left!==tipX, tipX+' -> '+q('#chartTip').style.left);
+ok('tooltip stays inside the card', parseFloat(q('#chartTip').style.left)>=q('#chartTip').offsetWidth/2-0.5,
+   'left='+q('#chartTip').style.left+' width='+q('#chartTip').offsetWidth);
+// overlay a category and it joins the readout
+click(q('[data-toggle-series]'));
+hover(0.99);
+ok('overlaid categories appear in the tooltip', q('#chartTip').querySelectorAll('.tip-row').length===2,
+   'rows='+q('#chartTip').querySelectorAll('.tip-row').length);
+q('.stats').dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:5,clientY:5}));
+ok('tooltip hides when the pointer leaves the chart', q('#chartTip').hidden && q('#crosshair').hidden);
+click(q('[data-toggle-series]'));
+tab('calendar');
+ok('calendar renders heatmap', qq('.heat i').length>360, 'cells='+qq('.heat i').length);
+ok('logging streak counted', q('#view').textContent.includes('1d'));
+ok('calendar counts closed streaks', q('#view').textContent.includes('current closed streak')
+   && q('#view').textContent.includes('longest closed streak'));
+ok('closed days are marked on the heatmap', qq('.heat i.closed').length===2, 'marked='+qq('.heat i.closed').length);
+ok('heatmap cells look clickable', getComputedStyle(q('.heat i')).cursor==='pointer', getComputedStyle(q('.heat i')).cursor);
+click(qq('.heat i').find(c=>c.classList.contains('today')));
+ok('clicking a heatmap cell opens that day', !!q('.day-head'));
+tab('calendar');
+tab('settings');
+ok('settings lists categories', qq('.mrow').length===5, 'rows='+qq('.mrow').length);
+
+// --- add / edit / weight / delete a category
+click(q('[data-add]'));
+ok('add opens editor', !!q('.mrow.editing'));
+const nameIn=q('[data-f="name"]'); nameIn.value='Water'; nameIn.dispatchEvent(new Event('change',{bubbles:true}));
+const typeSel=q('[data-f="type"]'); typeSel.value='target'; typeSel.dispatchEvent(new Event('change',{bubbles:true}));
+ok('switching type reveals target fields', !!q('[data-f="target"]') && !!q('[data-f="unit"]'));
+const w=q('[data-f="weight"]'); w.value='3'; w.dispatchEvent(new Event('change',{bubbles:true}));
+click(q('[data-color]'));
+click(q('[data-done]'));
+ok('category saved with name+weight', q('#view').textContent.includes('Water') && q('#view').textContent.includes('weight ×3'));
+// reorder
+click(qq('[data-move]').filter(b=>b.dataset.dir==='-1' && !b.disabled)[0]);
+ok('reorder ran', qq('.mrow').length===6);
+// archive
+click(q('[data-edit]')); click(q('[data-archive]'));
+ok('archive shows Restore in open editor', q('#view').textContent.includes('Restore'));
+click(q('[data-done]'));
+ok('archived row is badged when collapsed', q('#view').textContent.includes('archived'));
+tab('today');
+ok('archived category hidden from daily entry', qq('.metric').length===5, 'rows='+qq('.metric').length);
+tab('settings');
+click(q('[data-edit]')); click(q('[data-archive]')); click(q('[data-done]'));   // restore
+ok('restore brings it back', !q('#view').textContent.includes('archived'));
+click(q('[data-edit]')); const delId=q('[data-del]').dataset.del; click(q('[data-del]'));
+ok('delete removes row', qq('.mrow').length===5, 'rows='+qq('.mrow').length);
+
+// --- journal: the list is a lens on the same note the Today view writes
+tab('journal');
+ok('journal lists the day we wrote on', qq('.jrow').length===1, 'rows='+qq('.jrow').length);
+ok('journal row shows the note text', q('.jrow-text').textContent.includes('hello'));
+ok('writing streak counted', q('#view').textContent.includes('writing streak'));
+
+// search
+type(q('#jSearch'),'zzzz');
+ok('search with no match empties the list', qq('.jrow').length===0 && q('.jlist').textContent.includes('Nothing matches'));
+ok('search box keeps focus while typing', (()=>{const s=q('#jSearch');s.focus();type(s,'hell');return document.activeElement===s})());
+ok('search narrows to the match', qq('.jrow').length===1);
+ok('search highlights the hit', !!q('.jrow-text mark'));
+type(q('#jSearch'),'');
+
+// band filter
+click(q('[data-jband="unscored"]'));
+ok('unscored filter hides the scored day', qq('.jrow').length===0, 'rows='+qq('.jrow').length);
+click(q('[data-jband="all"]'));
+ok('back to all', qq('.jrow').length===1);
+
+// open an entry, write, come back
+click(q('.jrow'));
+ok('opening an entry shows the note', q('#jNote') && q('#jNote').value==='hello', q('#jNote')&&q('#jNote').value);
+ok('open entry shows the day score beside it', !!q('.jaside #ringVal'));
+ok('word count shown', q('#jCount').textContent==='1 word', q('#jCount').textContent);
+type(q('#jNote'),'hello there world');
+ok('word count updates live', q('#jCount').textContent==='3 words', q('#jCount').textContent);
+ok('textarea keeps focus while typing', (()=>{const n=q('#jNote');n.focus();type(n,'hello there world');return document.activeElement===n})());
+click(q('[data-jstar]'));
+ok('starring an entry sticks', !!q('[data-jstar].on'));
+click(q('[data-jday="-1"]'));
+ok('previous day opens empty', q('#jNote').value==='');
+ok('empty day offers a prompt', !!q('.jprompt'));
+ok('prompt is stable for a date', (()=>{const a=q('.jprompt').textContent;click(q('[data-jday="1"]'));click(q('[data-jday="-1"]'));return q('.jprompt').textContent===a})());
+click(q('[data-jback]'));
+ok('back returns to the list', !!q('.jlist'));
+ok('the edit persisted', q('.jrow-text').textContent.includes('hello there world'));
+ok('starred filter finds it', (()=>{click(q('[data-jstarred]'));return qq('.jrow').length===1})());
+click(q('[data-jstarred]'));
+
+// the journal and Today write the same text
+tab('today');
+ok('Today shows the text written in the journal', q('#note').value==='hello there world', q('#note').value);
+type(q('#note'),'hello');
+tab('journal');
+ok('journal shows the text written in Today', q('.jrow-text').textContent.includes('hello'));
+click(q('.jrow')); click(q('[data-jtoday]'));
+ok('"edit the numbers" jumps to that day in Today', !!q('.day-head') && q('.day-meta h1').textContent==='Today');
+
+// --- profile switch + isolation
+click(q('#profileBtn')); click(q('[data-newprofile]'));
+ok('new profile active', q('#profileName').textContent==='Tester');
+tab('today');
+ok('new profile starts with an unlogged day', score()==='—' && !q('#note').value, 'score='+score());
+ok('new profile is isolated from the first', qq('.metric').length===5);
+const raw=JSON.parse(localStorage.getItem('cadence.v1'));
+ok('two profiles persisted', Object.keys(raw.profiles).length===2, Object.keys(raw.profiles).length);
+click(q('#profileBtn')); click(qq('[data-switch]')[0]);
+ok('switch back restores note', (()=>{tab('today');return q('#note').value==='hello'})(), q('#note').value);
+
+// --- theme cycle
+click(q('#themeBtn')); const l=document.documentElement.classList.contains('dark');
+click(q('#themeBtn')); const d=document.documentElement.classList.contains('dark');
+ok('theme toggles light->dark', l===false && d===true, 'light='+l+' dark='+d);
+
+ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
+restore();   // hand the browser back its real data
+document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';
+const pre=document.createElement('pre'); pre.id='results'; pre.textContent=out.join('\n');
+document.body.appendChild(pre);
+</script>
+</body></html>
