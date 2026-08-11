@@ -174,12 +174,23 @@ q('.stats').dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:5
 ok('tooltip hides when the pointer leaves the chart', q('#chartTip').hidden && q('#crosshair').hidden);
 click(q('[data-toggle-series]'));
 tab('calendar');
-ok('calendar renders heatmap', qq('.heat i').length>360, 'cells='+qq('.heat i').length);
+// the heatmap starts when the profile did — no offering to log days that predate the app
+ok('heatmap covers only days since the profile started', qq('.heat i[data-jump]').length===2,
+   'loggable cells='+qq('.heat i[data-jump]').length);
+ok('heatmap heading says when it starts', q('#view').textContent.includes('Since'),
+   q('.card-head h2')&&q('.card-head h2').textContent);
+ok('no cell predates the first logged day', (()=>{
+  const first=qq('.heat i[data-jump]').map(c=>c.dataset.jump).sort()[0];
+  const y=new Date(); y.setDate(y.getDate()-1);
+  const yk=y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0');
+  return first===yk;
+})(), qq('.heat i[data-jump]').map(c=>c.dataset.jump).join(','));
+ok('padding cells hold the grid without being clickable', qq('.heat i.pre').every(c=>!c.dataset.jump));
 ok('logging streak counted', q('#view').textContent.includes('1d'));
 ok('calendar counts closed streaks', q('#view').textContent.includes('current closed streak')
    && q('#view').textContent.includes('longest closed streak'));
 ok('closed days are marked on the heatmap', qq('.heat i.closed').length===2, 'marked='+qq('.heat i.closed').length);
-ok('heatmap cells look clickable', getComputedStyle(q('.heat i')).cursor==='pointer', getComputedStyle(q('.heat i')).cursor);
+ok('heatmap cells look clickable', getComputedStyle(q('.heat i[data-jump]')).cursor==='pointer', getComputedStyle(q('.heat i[data-jump]')).cursor);
 click(qq('.heat i').find(c=>c.classList.contains('today')));
 ok('clicking a heatmap cell opens that day', !!q('.day-head'));
 tab('calendar');

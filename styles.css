@@ -363,6 +363,8 @@ textarea.jnote { min-height: 340px; font-size: 15px; line-height: 1.65; }
 /* Every cell opens that day — say so. */
 .heat i { border-radius: 3px; background: var(--line-soft); cursor: pointer; transition: transform .1s ease; }
 .heat i:hover { transform: scale(1.35); outline: 1px solid var(--faint); }
+/* Padding cells before the profile started: they hold the week grid square, nothing more. */
+.heat i.pre { background: none; cursor: default; pointer-events: none; }
 .heat i[data-lvl="0"] { background: color-mix(in srgb, var(--bad) 55%, var(--line-soft)); }
 .heat i[data-lvl="1"] { background: color-mix(in srgb, var(--warn) 45%, var(--line-soft)); }
 .heat i[data-lvl="2"] { background: color-mix(in srgb, var(--good) 30%, var(--line-soft)); }

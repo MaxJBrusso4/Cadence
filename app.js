@@ -46,7 +46,7 @@ function seed() {
 }
 
 function newProfile(name, avatar, withDefaults) {
-  const p = { id: uid(), name, avatar, goal: 75, metrics: [], entries: {} };
+  const p = { id: uid(), name, avatar, goal: 75, metrics: [], entries: {}, createdAt: todayKey() };
   if (withDefaults) {
     p.metrics = [
       mk('Sleep',      '😴', 'target', { target: 8,  unit: 'h',     color: PALETTE[5] }),
@@ -93,6 +93,18 @@ function prettyDate(k) {
 }
 
 function profile() { return db.profiles[db.activeProfileId]; }
+
+/* The day this profile started existing. Profiles made before `createdAt` was stored
+   fall back to their earliest entry — you cannot have logged a day before your first
+   one — and a brand-new profile with no history starts today. */
+function profileStart() {
+  const p = profile();
+  const keys = Object.keys(p.entries).sort();
+  const earliest = keys.length ? keys[0] : null;
+  // Whichever came first: backfilling a day before you started still has to be visible.
+  if (p.createdAt && earliest) return p.createdAt < earliest ? p.createdAt : earliest;
+  return p.createdAt || earliest || todayKey();
+}
 function metrics() { return profile().metrics.filter(m => !m.archived); }
 function entry(k) { return profile().entries[k]; }
 function ensureEntry(k) {
@@ -770,25 +782,40 @@ function path(pts, color, w, op) {
 
 function viewCalendar() {
   const p = profile();
+  // The heatmap begins the day this profile did, not a fixed year back — there is no
+  // sense offering to log days that predate the app. It stops growing at 12 months.
   const end = parseKey(todayKey());
-  const start = new Date(end); start.setDate(start.getDate() - 363);
-  start.setDate(start.getDate() - start.getDay());          // back up to Sunday
+  const firstKey = profileStart();
+  const yearAgo = new Date(end); yearAgo.setDate(yearAgo.getDate() - 363);
+  const first = parseKey(firstKey) > yearAgo ? parseKey(firstKey) : yearAgo;
+  const capped = parseKey(firstKey) <= yearAgo;
+  // Back up to Sunday so the week rows line up; the days before `first` render as blanks.
+  const grid = new Date(first); grid.setDate(grid.getDate() - grid.getDay());
 
-  let cells = '', months = '', lastMonth = -1, col = 0;
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const k = dateKey(d), s = dayScore(k);
-    const lvl = s == null ? '' : s >= 90 ? 4 : s >= 75 ? 3 : s >= 55 ? 2 : s >= 30 ? 1 : 0;
-    const cls = (k === todayKey() ? 'today ' : '') + (isClosed(k) ? 'closed' : '');
-    cells += `<i data-lvl="${lvl}" class="${cls.trim()}" data-jump="${k}"
-      title="${prettyDate(k)} — ${s == null ? 'not logged' : s + '%'}${isClosed(k) ? ' · closed' : ''}"></i>`;
+  let cells = '', months = '', lastMonth = -1;
+  for (let d = new Date(grid); d <= end; d.setDate(d.getDate() + 1)) {
+    const k = dateKey(d);
+    if (d < first) {
+      cells += `<i class="pre" aria-hidden="true"></i>`;
+    } else {
+      const s = dayScore(k);
+      const lvl = s == null ? '' : s >= 90 ? 4 : s >= 75 ? 3 : s >= 55 ? 2 : s >= 30 ? 1 : 0;
+      const cls = (k === todayKey() ? 'today ' : '') + (isClosed(k) ? 'closed' : '');
+      cells += `<i data-lvl="${lvl}" class="${cls.trim()}" data-jump="${k}"
+        title="${prettyDate(k)} — ${s == null ? 'not logged' : s + '%'}${isClosed(k) ? ' · closed' : ''}"></i>`;
+    }
     if (d.getDay() === 0) {
-      col++;
       if (d.getMonth() !== lastMonth) {
         lastMonth = d.getMonth();
         months += `<span style="width:15px;flex:none">${d.toLocaleDateString(undefined, { month: 'short' })}</span>`;
       } else months += `<span style="width:15px;flex:none"></span>`;
     }
   }
+
+  const spanLabel = capped
+    ? 'Last 12 months'
+    : `Since ${first.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`;
+  const dayCount = Math.round((end - first) / 86400000) + 1;
 
   const loggedNow = streak(k => !!entry(k));
   const goodNow = streak(k => (dayScore(k) ?? -1) >= p.goal);
@@ -821,7 +848,10 @@ function viewCalendar() {
   </div>
 
   <div class="card">
-    <div class="card-head"><h2>Last 12 months</h2><span class="sub">click a day to open it</span></div>
+    <div class="card-head">
+      <h2>${esc(spanLabel)}</h2>
+      <span class="sub">${dayCount} day${dayCount === 1 ? '' : 's'} · click one to open it</span>
+    </div>
     <div class="card-body">
       <div class="heat-scroll">
         <div class="months">${months}</div>
