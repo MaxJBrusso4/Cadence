@@ -13,10 +13,11 @@
     </div>
   </div>
   <nav class="wrap tabs" id="tabs">
-    <button class="tab is-active" data-view="today">Today</button>
-    <button class="tab" data-view="journal">Journal</button>
+    <button class="tab is-active" data-view="today">Day</button>
+    <button class="tab" data-view="tasks">Tasks</button>
     <button class="tab" data-view="trends">Trends</button>
     <button class="tab" data-view="calendar">Calendar</button>
+    <button class="tab" data-view="journal">Journal</button>
     <button class="tab" data-view="settings">Settings</button>
   </nav>
 </header>
@@ -38,7 +39,8 @@ window.confirm=()=>true; window.prompt=()=>'Tester';
 </script>
 <script src="app.js"></script>
 <script>
-const out=[]; const ok=(n,c,d)=>out.push((c?'PASS':'FAIL')+' — '+n+(d&&!c?'  ['+d+']':''));
+// `var` so the failsafe block at the bottom can still read the partial results.
+var out=[]; const ok=(n,c,d)=>out.push((c?'PASS':'FAIL')+' — '+n+(d&&!c?'  ['+d+']':''));
 const click=el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true}));
 const q=s=>document.querySelector(s), qq=s=>[...document.querySelectorAll(s)];
 const score=()=>q('#ringVal')?q('#ringVal').textContent:'?';
@@ -194,6 +196,62 @@ ok('heatmap cells look clickable', getComputedStyle(q('.heat i[data-jump]')).cur
 click(qq('.heat i').find(c=>c.classList.contains('today')));
 ok('clicking a heatmap cell opens that day', !!q('.day-head'));
 tab('calendar');
+
+// --- tasks: written on a day, carried until ticked, never scored
+tab('tasks');
+ok('tasks tab starts empty', !q('.task') && q('#view').textContent.includes('Nothing here yet'));
+const addTask=t=>{const i=q('#taskInput'); i.value=t;
+  i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));};
+addTask('Call the dentist');
+addTask('Post the form');
+ok('Enter adds a task', qq('.task').length===2, 'tasks='+qq('.task').length);
+ok('the caret stays in the box for the next one', document.activeElement===q('#taskInput'));
+ok('the box clears between tasks', q('#taskInput').value==='');
+ok('blank input adds nothing', (()=>{addTask('   ');return qq('.task').length===2})());
+ok('open count is shown', q('#view').textContent.includes('2 to do'));
+
+// ticking one
+click(qq('.check')[0]);
+ok('ticking marks it done', qq('.task.is-done').length===1);
+ok('done tasks sink below open ones', qq('.task')[1].classList.contains('is-done'), qq('.task').map(t=>t.className).join(' | '));
+ok('tasks are persisted', localStorage.getItem('cadence.v1').includes('Call the dentist'));
+
+// scoring is untouched
+tab('today');
+const scoreWithTasks=score();
+ok('tasks stay out of the score', scoreWithTasks==='100%', scoreWithTasks);
+ok('open tasks show as a pill on the day', !!q('[data-gotasks]') && q('[data-gotasks]').textContent.includes('1'),
+   q('[data-gotasks]')&&q('[data-gotasks]').textContent);
+click(q('[data-gotasks]'));
+ok('the pill jumps to the tasks tab', !!q('#taskInput'));
+
+// carry-over: an unfinished task follows you forward, wearing its age
+click(q('[data-day="-1"]'));
+ok('yesterday does not show a task written today', qq('.task').length===0, 'tasks='+qq('.task').length);
+addTask('Left over from yesterday');
+click(q('[data-day="today"]'));
+ok('an unfinished task carries into today', q('#view').textContent.includes('Left over from yesterday'));
+ok('a carried task shows how old it is', !!q('.task-age') && q('.task-age').textContent==='1d',
+   q('.task-age')&&q('.task-age').textContent);
+ok('today\'s own tasks carry no age badge', qq('.task').length===3 && qq('.task-age').length===1,
+   'tasks='+qq('.task').length+' ages='+qq('.task-age').length);
+// ticking a carried task takes it off tomorrow's list, not yesterday's record
+click(qq('.check').find(c=>!c.classList.contains('on')));
+click(q('[data-day="-1"]'));
+ok('a task ticked today is gone from the earlier day', !q('#view').textContent.includes('Left over from yesterday'),
+   'still listed on the day it was written');
+click(q('[data-day="today"]'));
+
+// deleting
+const beforeDel=qq('.task').length;
+click(q('[data-taskdel]'));
+ok('deleting removes a task', qq('.task').length===beforeDel-1, beforeDel+' -> '+qq('.task').length);
+
+// tasks appear alongside the journal entry for that day
+tab('journal'); click(q('.jrow'));
+ok('the journal shows that day\'s tasks', !!q('.jb-tasks'), 'no task list in the aside');
+
+// --- a note or a task alone does not count as a logged day
 tab('settings');
 ok('settings lists categories', qq('.mrow').length===5, 'rows='+qq('.mrow').length);
 
@@ -293,5 +351,18 @@ restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';
 const pre=document.createElement('pre'); pre.id='results'; pre.textContent=out.join('\n');
 document.body.appendChild(pre);
+</script>
+<script>
+// Failsafe: if the block above threw, it never printed anything and the run looks like
+// silence rather than failure. Say so out loud, and show how far it got.
+if (!document.getElementById('results')) {
+  const pre=document.createElement('pre'); pre.id='results';
+  const done = window.out || [];
+  pre.textContent = (done.join('\n')+'\n') +
+    'SUITE ABORTED after the above — '+(window.__errs.join(' | ')||'no error captured');
+  document.body.appendChild(pre);
+  document.title='FAILURES';
+  restore();
+}
 </script>
 </body></html>

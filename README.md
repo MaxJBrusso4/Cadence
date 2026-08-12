@@ -33,9 +33,10 @@ history, own definition of a good day. Switch or add via the avatar menu, top ri
 
 Each also has a **weight** (×0.5 to ×5), so deep work can count double against reading.
 
-**The daily score** is the weighted average of every category's 0–100% score. A day with
-no entry at all shows `—` and is skipped in averages; once you touch anything on a day,
-blank numeric fields count as zero — you didn't do it.
+**The daily score** is the weighted average of every category's 0–100% score. A day only
+counts as logged once you record at least one value — writing a journal entry or jotting
+down a task does not score the day. An unlogged day shows `—` and is skipped in averages.
+Once you *have* recorded something, blank numeric fields count as zero — you didn't do it.
 
 For "at most" targets (screen time, spending), you score 100% up to the cap and slide
 linearly to 0% at double it.
@@ -44,22 +45,25 @@ linearly to 0% at double it.
 threshold in a row (set it in Settings), and days *closed* in a row. Categories track their
 own streaks of consecutive 100% days.
 
-**Closing a day** is the end-of-day ritual: press **Close the day** on Today and the score
+**Closing a day** is the end-of-day ritual: press **Close the day** on the Day tab and the score
 is stamped, the ring gives one pulse, and if you haven't written anything the caret lands
 in the journal box. It is a marker and a stat, never a lock — scoring ignores it entirely,
 a closed day stays fully editable, and you can reopen any day at any time.
 
 ## The views
 
-- **Today** — enter the day and watch it score live. The ring is segmented: each category
+Left to right: the two tabs you touch daily, then the three for looking back, then settings.
+
+- **Day** — enter the day and watch it score live. The ring is segmented: each category
   owns a slice sized by its weight and filled to its own score, so you can see *which*
   categories carried the day, not just the total. Hovering a slice lights up its row and
   vice versa. Under it, a 14-day sparkline for context and a nudge naming the single
   unfinished category that would move the score most. `←` / `→` move between days.
-- **Journal** — one entry per day, the same text the Today view writes. Search everything
-  you've written, filter by the kind of day it was (great / middling / rough / unscored),
-  star the ones worth keeping. Write for any date, whenever you like — pick it with
-  **Any day**, or arrow between days with `←` / `→`. `Esc` returns to the list.
+- **Tasks** — what has to get done, written the night before or that morning. Type and
+  press Enter, tick it off when it's done. **Anything you don't tick follows you to the
+  next day**, wearing the age it has earned (`4d`) so you can see what's going stale.
+  Tasks are deliberately kept *out* of the score: they're one-off things, not habits, and
+  counting them would make the daily percentage mean less rather than more.
 - **Trends** — 7/30/90/365-day efficiency line, first-half vs second-half delta, per-category
   averages. Click a legend name to overlay that category on the chart. Hovering the chart
   brings up a crosshair and reads out that day, including any overlaid categories.
@@ -67,6 +71,11 @@ a closed day stays fully editable, and you can reopen any day at any time.
   there, so it never offers you days that predate the app (it stops widening at 12
   months). Click any day to open it. Plus six streak stats: current and longest for days
   logged, days above your threshold, and days closed. Closed days carry a faint ring.
+- **Journal** — one entry per day, the same text the Day view writes. Search everything
+  you've written, filter by the kind of day it was (great / middling / rough / unscored),
+  star the ones worth keeping. Write for any date, whenever you like — pick it with
+  **Any day**, or arrow between days with `←` / `→`. `Esc` returns to the list. That day's
+  tasks show beside the entry.
 - **Settings** — add, edit, reorder, archive, or delete categories; profile name, avatar, and goal threshold; JSON backup, CSV export, JSON import.
 
 Archiving a category hides it from daily entry and scoring but keeps its history.
@@ -79,7 +88,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 93 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 112 interaction tests — open it in a browser and read the list at the bottom |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

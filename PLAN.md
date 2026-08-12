@@ -116,13 +116,33 @@ flag is a ritual and a stat, nothing more.
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
 → 81 → 90.
 
+## Stage 5 — Tasks (built 2026-08-12)
+
+Tab order became **Day · Tasks · Trends · Calendar · Journal · Settings**: the two tabs
+touched daily first, the three for looking back next. "Today" became "Day" — it always
+showed whichever day you had arrowed to, and once Tasks existed, "Today" no longer
+distinguished anything.
+
+Tasks live on the day they were written (`entries[key].tasks`) and are never moved.
+Carry-over is computed at render time: an unfinished task shows on every later day until
+it is ticked, wearing its age (`4d`). Nothing mutates at midnight, so there is no clock to
+get wrong and no migration to run.
+
+Deliberately unscored — `dayScore()` never sees them. They are one-off things rather than
+habits, and a day with two tasks and a day with nine are not comparable. A progress ring
+was built and then removed for the same reason: it rendered "1 of 5 done" as a red 20%,
+which is exactly the judgement the feature exists to avoid.
+
+**Fixed alongside it:** an entry object alone no longer counts as a logged day. Adding a
+task or writing a note used to create one, which scored the day 0% and dragged the
+averages down. `isLogged()` now requires at least one recorded value.
+
 ## Known, not yet fixed
 
-- An entry object created without content — by starring an empty day, or typing a note and
-  deleting it — still counts as a "logged" day for streak purposes. The fix is to prune
-  empty entries on save.
 - Archiving a category changes historical day scores retroactively, since `dayScore()`
   only ever averages the currently-active categories.
+- The Trends chart at the 1y range still plots months that predate the profile — the same
+  complaint the calendar had before it started at `profileStart()`.
 
 ## Ideas not taken up
 

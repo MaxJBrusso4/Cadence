@@ -142,10 +142,22 @@ function metricScore(m, raw) {
   return clamp((v / t) * 100, 0, 100);
 }
 
+/* Has this day actually been tracked? An entry object alone is not enough — writing a
+   note or jotting a task creates one, and neither of those means you logged the day.
+   Without this, opening a day to type a line scored it 0% and dragged the averages down. */
+function isLogged(k) {
+  const e = entry(k);
+  if (!e || !e.values) return false;
+  return Object.keys(e.values).some(id => {
+    const v = e.values[id];
+    return v !== undefined && v !== null && v !== '';
+  });
+}
+
 /* Weighted day score, or null if nothing was logged that day. */
 function dayScore(k) {
   const e = entry(k);
-  if (!e) return null;
+  if (!isLogged(k)) return null;
   const ms = metrics();
   if (!ms.length) return null;
   let sum = 0, w = 0;
@@ -197,7 +209,10 @@ function render() {
   $('#profileAvatar').textContent = p.avatar;
   $$('#tabs .tab').forEach(t => t.classList.toggle('is-active', t.dataset.view === ui.view));
   const el = $('#view');
-  el.innerHTML = ({ today: viewToday, journal: viewJournal, trends: viewTrends, calendar: viewCalendar, settings: viewSettings })[ui.view]();
+  el.innerHTML = ({
+    today: viewToday, tasks: viewTasks, trends: viewTrends,
+    calendar: viewCalendar, journal: viewJournal, settings: viewSettings
+  })[ui.view]();
 }
 
 /* ============================ view: today ============================ */
@@ -245,7 +260,7 @@ function viewToday() {
     </div>`;
   }).join('');
 
-  const logged = streak(d => !!entry(d));
+  const logged = streak(isLogged);
   const goodRun = streak(d => (dayScore(d) ?? -1) >= p.goal);
 
   return `
@@ -269,6 +284,7 @@ function viewToday() {
         <div class="row">
           <span class="pill ${logged ? 'good' : ''}">🔥 ${logged}d logged</span>
           <span class="pill">${goodRun}d above ${p.goal}%</span>
+          ${openTaskCount(k) ? `<button class="pill tasks-pill" data-gotasks="1">☑ ${openTaskCount(k)} to do</button>` : ''}
         </div>
       </div>
     </div>
@@ -426,6 +442,102 @@ function refreshScores() {
   }
   const nudge = $('#nudge');
   if (nudge) nudge.outerHTML = nudgeHTML(ui.date);
+}
+
+/* ============================ tasks ============================ */
+
+/* Tasks live on the day they were written — `entries[key].tasks` — and are never moved.
+   Carry-over is worked out at render time instead: an unfinished task keeps showing up
+   on every later day until it is ticked, wearing the age it has earned. Nothing mutates
+   at midnight, so there is no clock to get wrong and no data to migrate. */
+
+function tasksOn(k) {
+  const p = profile(), out = [];
+  Object.keys(p.entries).forEach(day => {
+    if (day > k) return;                                  // not written yet, as of k
+    (p.entries[day].tasks || []).forEach(t => {
+      // Show it if it is still open, or if this is the day it was ticked off.
+      if (!t.done || t.doneAt === k) out.push({ t, day });
+    });
+  });
+  // Open tasks first, oldest at the top so what's rotting is what you see.
+  return out.sort((a, b) => (a.t.done - b.t.done) || (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+}
+
+function openTaskCount(k) { return tasksOn(k).filter(x => !x.t.done).length; }
+
+function daysBetween(from, to) {
+  return Math.round((parseKey(to) - parseKey(from)) / 86400000);
+}
+
+function findTask(id) {
+  const p = profile();
+  const days = Object.keys(p.entries);
+  for (let i = 0; i < days.length; i++) {
+    const list = p.entries[days[i]].tasks || [];
+    const t = list.find(x => x.id === id);
+    if (t) return { t, list, day: days[i] };
+  }
+  return null;
+}
+
+function addTask(k, text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return false;
+  const e = ensureEntry(k);
+  if (!e.tasks) e.tasks = [];
+  e.tasks.push({ id: uid(), text: trimmed, done: false, doneAt: null });
+  save();
+  return true;
+}
+
+/* ============================ view: tasks ============================ */
+
+function viewTasks() {
+  const k = ui.date;
+  const rows = tasksOn(k);
+  const open = rows.filter(x => !x.t.done).length;
+  const done = rows.length - open;
+
+  const list = rows.map(({ t, day }) => {
+    const age = daysBetween(day, k);
+    return `<div class="task ${t.done ? 'is-done' : ''}">
+      <button class="check ${t.done ? 'on' : ''}" role="checkbox" aria-checked="${t.done}"
+        data-task="${t.id}" aria-label="${esc(t.text)}"></button>
+      <span class="task-text">${esc(t.text)}</span>
+      ${age > 0 && !t.done ? `<span class="task-age" title="Written ${age} day${age === 1 ? '' : 's'} ago">${age}d</span>` : ''}
+      <span class="spacer"></span>
+      <button class="btn sm ghost task-del" data-taskdel="${t.id}" title="Delete">×</button>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <div class="day-head tasks-head">
+      <div class="day-meta">
+        <h1>${prettyDate(k)}</h1>
+        <div class="sub">${open ? `${open} to do` : rows.length ? 'all done' : 'nothing written down yet'}${done ? ` · ${done} done` : ''}</div>
+        <div class="day-nav">
+          <button class="btn sm" data-day="-1">←</button>
+          <button class="btn sm" data-day="+1" ${k >= todayKey() ? 'disabled' : ''}>→</button>
+          ${k !== todayKey() ? `<button class="btn sm ghost" data-day="today">Jump to today</button>` : ''}
+        </div>
+      </div>
+      <div class="spacer"></div>
+      ${rows.length ? `<div class="task-count"><b>${done}</b><span>of ${rows.length} done</span></div>` : ''}
+    </div>
+
+    <div class="task-add">
+      <input class="input" id="taskInput" placeholder="What has to happen ${k === todayKey() ? 'today' : 'that day'}? Press Enter"
+        autocomplete="off">
+      <button class="btn primary sm" data-taskadd="1">Add</button>
+    </div>
+
+    ${list || `<div class="empty">
+      Nothing here yet. Write down what has to get done — tonight, for tomorrow, whenever.<br>
+      <span class="sub">Anything you don't tick follows you to the next day.</span>
+    </div>`}
+  </div>`;
 }
 
 /* ============================ view: journal ============================ */
@@ -617,6 +729,18 @@ function journalDay(k) {
           ${ring(k)}
         </div>
         <div class="jb">${breakdown}</div>
+        ${(() => {
+          // What you'd meant to do that day — useful context when reading a rough one back.
+          const rows = tasksOn(k);
+          if (!rows.length) return '';
+          return `<div class="jb jb-tasks">
+            <div class="sub" style="font-size:12px">Tasks that day</div>
+            ${rows.map(({ t }) => `<div class="jb-row ${t.done ? 'is-done' : ''}">
+              <span class="tick">${t.done ? '✓' : '○'}</span>
+              <span class="jb-name">${esc(t.text)}</span>
+            </div>`).join('')}
+          </div>`;
+        })()}
         <button class="btn sm" data-jtoday="${k}">Edit the numbers →</button>
       </aside>
     </div>
@@ -817,10 +941,10 @@ function viewCalendar() {
     : `Since ${first.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`;
   const dayCount = Math.round((end - first) / 86400000) + 1;
 
-  const loggedNow = streak(k => !!entry(k));
+  const loggedNow = streak(isLogged);
   const goodNow = streak(k => (dayScore(k) ?? -1) >= p.goal);
   const closedNow = streak(isClosed);
-  const loggedBest = bestStreak(k => !!entry(k));
+  const loggedBest = bestStreak(isLogged);
   const goodBest = bestStreak(k => (dayScore(k) ?? -1) >= p.goal);
   const closedBest = bestStreak(isClosed);
 
@@ -975,9 +1099,34 @@ function metricEditor(m, i) {
 /* ============================ events ============================ */
 
 function onClick(ev) {
-  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen]');
+  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen],[data-task],[data-taskdel],[data-taskadd],[data-gotasks]');
   if (!t) return;
   const d = t.dataset;
+
+  /* --- tasks --- */
+  if (d.task) {
+    const found = findTask(d.task);
+    if (found) {
+      found.t.done = !found.t.done;
+      found.t.doneAt = found.t.done ? ui.date : null;   // ticked today, so it shows today
+      save();
+    }
+    return render();
+  }
+  if (d.taskdel) {
+    const found = findTask(d.taskdel);
+    if (found) {
+      found.list.splice(found.list.indexOf(found.t), 1);
+      save();
+    }
+    return render();
+  }
+  if (d.taskadd) {
+    const input = $('#taskInput');
+    if (input && addTask(ui.date, input.value)) { render(); $('#taskInput').focus(); }
+    return;
+  }
+  if (d.gotasks) { ui.view = 'tasks'; return render(); }
 
   if (d.close) {
     const e = ensureEntry(d.close);
@@ -1334,6 +1483,13 @@ viewEl.addEventListener('pointerleave', () => { link(null); hideCrosshair(); });
 viewEl.addEventListener('pointermove', ev => {
   if (ev.target.closest('.chart-wrap')) moveCrosshair(ev);
   else hideCrosshair();
+});
+
+/* Enter adds and leaves the caret in place, so a list can be typed straight through. */
+viewEl.addEventListener('keydown', ev => {
+  if (ev.target.id !== 'taskInput' || ev.key !== 'Enter') return;
+  ev.preventDefault();
+  if (addTask(ui.date, ev.target.value)) { render(); $('#taskInput').focus(); }
 });
 
 viewEl.addEventListener('click', onClick);

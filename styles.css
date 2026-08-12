@@ -264,6 +264,54 @@ label.field > span { display: block; font-size: 12px; color: var(--muted); margi
   .m-sub { opacity: 1; }
 }
 
+/* ---------- tasks ---------- */
+.tasks-head { align-items: flex-start; }
+/* A count, not a percentage — tasks are not scored, and a coloured ring would imply
+   they were, with a bad day's worth of red for a list you simply wrote long. */
+.task-count { flex: none; text-align: right; color: var(--muted); }
+.task-count b { display: block; font-size: 22px; font-weight: 620; color: var(--text); font-variant-numeric: tabular-nums; }
+.task-count span { font-size: 12px; }
+.task-add {
+  display: flex; gap: 8px; align-items: center;
+  padding: 12px 18px; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+.task-add .input { flex: 1; }
+
+.task {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 18px; border-top: 1px solid var(--line-soft);
+}
+.task:first-of-type { border-top: 0; }
+.task-text { font-size: 14.5px; line-height: 1.4; }
+.task.is-done .task-text { color: var(--faint); text-decoration: line-through; }
+.task-del { color: var(--faint); font-size: 15px; line-height: 1; padding: 2px 7px; opacity: 0; }
+.task:hover .task-del, .task-del:focus-visible { opacity: 1; }
+.task-del:hover { color: var(--bad); }
+
+/* Age, not urgency — quiet until it has been sitting a while. */
+.task-age {
+  flex: none; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line-soft); color: var(--faint);
+}
+.task-age[title*="3 days"], .task-age[title*="4 days"], .task-age[title*="5 days"],
+.task-age[title*="6 days"], .task-age[title*="7 days"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+
+.check {
+  flex: none; width: 22px; height: 22px; border-radius: 7px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--panel-2); transition: .15s;
+  display: grid; place-items: center;
+}
+.check:hover { border-color: var(--accent); }
+.check.on { background: var(--good); border-color: var(--good); }
+.check.on::after { content: "✓"; color: #fff; font-size: 13px; font-weight: 700; line-height: 1; }
+
+.tasks-pill { cursor: pointer; font-family: inherit; color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.tasks-pill:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.jb-tasks { margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.jb-row .tick { color: var(--faint); font-size: 12px; width: 12px; flex: none; }
+.jb-row.is-done .jb-name { color: var(--faint); text-decoration: line-through; }
+
 /* ---------- journal ---------- */
 .jtools {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
