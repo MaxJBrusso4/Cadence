@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90.
+→ 81 → 90 → 112.
 
 ## Stage 5 — Tasks (built 2026-08-12)
 
