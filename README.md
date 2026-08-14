@@ -88,7 +88,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 112 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 118 interaction tests — open it in a browser and read the list at the bottom |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

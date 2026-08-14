@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112.
+→ 81 → 90 → 112 → 118.
 
 ## Stage 5 — Tasks (built 2026-08-12)
 
@@ -159,7 +159,7 @@ one category active, or "all off" becomes a delete button through the back door.
 working untouched. This falls out of refusing the excused-day mechanism, which would have
 required deciding whether a skipped day holds or extends a streak.
 
-### Step 1 — Snapshot the scoring rules onto the day (no visible change)
+### Step 1 — Snapshot the scoring rules onto the day (no visible change) ✅
 
 `entry.scoring` records the targets and weights in force when the day was logged:
 
@@ -171,8 +171,17 @@ entry.scoring = { deepwork: { target: 4, weight: 3 }, sleep: { target: 8, weight
 field is absent — so existing days and old JSON backups read exactly as they do now, and
 there is still no migration step.
 
-This is the fix for the archiving bug below, and it has to land first: day types multiply
-the ways history could silently rewrite itself.
+This is the fix for the archiving bug, and it had to land first: day types multiply the
+ways history could silently rewrite itself.
+
+Built 2026-08-13 as `scoringFor()` / `writeScoring()` / `ensureScoring()`. `dayScore()` and
+`ringGeometry()` both read the snapshot, so the picture and the number can never disagree.
+Two details worth remembering:
+
+- **The day in progress is exempt.** `resnapshotToday()` re-freezes today whenever
+  categories change, so adding a category at noon still counts today. Only today.
+- **Deleted categories are skipped**, not scored as zero — `scoringFor()` drops ids it no
+  longer recognises, since deleting already removes the values too.
 
 ### Step 2 — Day types, and the picker on the Day tab
 
@@ -228,8 +237,9 @@ slot for day-type colour.
 
 ## Known, not yet fixed
 
-- Archiving a category changes historical day scores retroactively, since `dayScore()`
-  only ever averages the currently-active categories. **Stage 6 step 1 is the fix.**
+- Days logged before stage 6 carry no snapshot and still fall back to live scoring, so
+  archiving can retroactively move *those* days. Backfilling would mean inventing history,
+  so they are left as they are.
 - The Trends chart at the 1y range still plots months that predate the profile — the same
   complaint the calendar had before it started at `profileStart()`.
 

@@ -154,15 +154,52 @@ function isLogged(k) {
   });
 }
 
+/* The rules a day was scored by: which categories counted, with the targets and weights
+   they had at the time. Frozen onto the entry when the day is first logged, so a change
+   made in October cannot rescore August — archiving a category used to do exactly that.
+   Days written before snapshots existed have no record and fall back to the live config,
+   which is the old behaviour, kept so old JSON backups read as they always did. */
+function scoringFor(k) {
+  const e = entry(k);
+  const snap = e && e.scoring;
+  if (!snap) return metrics().map(m => ({ m, weight: Number(m.weight) || 1 }));
+  const all = profile().metrics, out = [];
+  Object.keys(snap).forEach(id => {
+    const m = all.find(x => x.id === id);
+    if (!m) return;                    // deleted since — its values are gone too
+    const s = snap[id] || {};
+    const target = s.target === undefined ? m.target : s.target;
+    out.push({
+      m: target === m.target ? m : Object.assign({}, m, { target }),
+      weight: Number(s.weight) || 1
+    });
+  });
+  return out;
+}
+
+/* Freeze the current rules onto a day. */
+function writeScoring(k) {
+  const e = entry(k);
+  if (!e) return;
+  const snap = {};
+  metrics().forEach(m => { snap[m.id] = { target: m.target, weight: Number(m.weight) || 1 }; });
+  e.scoring = snap;
+}
+
+/* The first value recorded fixes the day's rules. */
+function ensureScoring(k) { const e = entry(k); if (e && !e.scoring) writeScoring(k); }
+
+/* Editing categories should still reach the day in progress — but only that day. */
+function resnapshotToday() { const k = todayKey(); if (entry(k) && isLogged(k)) writeScoring(k); }
+
 /* Weighted day score, or null if nothing was logged that day. */
 function dayScore(k) {
   const e = entry(k);
   if (!isLogged(k)) return null;
-  const ms = metrics();
-  if (!ms.length) return null;
+  const rules = scoringFor(k);
+  if (!rules.length) return null;
   let sum = 0, w = 0;
-  ms.forEach(m => {
-    const weight = Number(m.weight) || 1;
+  rules.forEach(({ m, weight }) => {
     sum += metricScore(m, e.values[m.id]) * weight;
     w += weight;
   });
@@ -315,14 +352,15 @@ const RING_R = 46, RING_C = 2 * Math.PI * RING_R;
 /* Where each category's slice sits on the circle. Shared by the renderer and the
    live-update path so the two can never drift apart. */
 function ringGeometry(k) {
-  const ms = metrics(), e = entry(k);
-  const totalW = ms.reduce((n, m) => n + (Number(m.weight) || 1), 0);
-  if (!ms.length || !totalW) return [];
+  // The same rules dayScore() used, so the picture can never disagree with the number.
+  const rules = scoringFor(k), e = entry(k);
+  const totalW = rules.reduce((n, r) => n + r.weight, 0);
+  if (!rules.length || !totalW) return [];
   // Gap between slices, shrinking as categories multiply so it never eats the arc.
-  const gap = ms.length > 1 ? Math.min(7, RING_C / (ms.length * 7)) : 0;
+  const gap = rules.length > 1 ? Math.min(7, RING_C / (rules.length * 7)) : 0;
   let at = 0;
-  return ms.map(m => {
-    const len = ((Number(m.weight) || 1) / totalW) * RING_C;
+  return rules.map(({ m, weight }) => {
+    const len = (weight / totalW) * RING_C;
     const seg = { m, at, span: Math.max(1, len - gap), score: e ? metricScore(m, e.values[m.id]) : 0 };
     at += len;
     return seg;
@@ -1180,6 +1218,7 @@ function onClick(ev) {
     const e = ensureEntry(ui.date);
     if (d.kind === 'bool') e.values[m.id] = !e.values[m.id];
     if (d.kind === 'scale') e.values[m.id] = Number(e.values[m.id]) === Number(d.val) ? undefined : Number(d.val);
+    ensureScoring(ui.date);
     save(); return render();
   }
   if (d.range) { ui.range = Number(d.range); return render(); }
@@ -1192,7 +1231,7 @@ function onClick(ev) {
 
   if (d.add) {
     const m = mk('New category', '⭐', 'bool', { color: PALETTE[profile().metrics.length % PALETTE.length] });
-    profile().metrics.push(m); ui.editing = m.id; save(); return render();
+    profile().metrics.push(m); ui.editing = m.id; resnapshotToday(); save(); return render();
   }
   if (d.edit) { ui.editing = d.edit; return render(); }
   if (d.done) { ui.editing = null; save(); return render(); }
@@ -1203,7 +1242,7 @@ function onClick(ev) {
   }
   if (d.archive) {
     const m = profile().metrics.find(x => x.id === d.archive);
-    m.archived = !m.archived; save(); return render();
+    m.archived = !m.archived; resnapshotToday(); save(); return render();
   }
   if (d.del) {
     const m = profile().metrics.find(x => x.id === d.del);
@@ -1211,7 +1250,7 @@ function onClick(ev) {
     const p = profile();
     p.metrics = p.metrics.filter(x => x.id !== d.del);
     Object.values(p.entries).forEach(e => { delete e.values[d.del]; });
-    ui.editing = null; save(); toast('Category deleted'); return render();
+    ui.editing = null; resnapshotToday(); save(); toast('Category deleted'); return render();
   }
   if (d.color) {
     const m = profile().metrics.find(x => x.id === ui.editing);
@@ -1237,6 +1276,7 @@ function onChange(ev) {
     const m = profile().metrics.find(x => x.id === ui.editing);
     const f = el.dataset.f;
     m[f] = (f === 'target' || f === 'weight') ? (Number(el.value) || (f === 'weight' ? 1 : 0)) : el.value;
+    if (f === 'target' || f === 'weight') resnapshotToday();
     save();
     if (f === 'type' || f === 'goal' || f === 'weight') render();   // editor layout depends on these
     return;
@@ -1256,6 +1296,7 @@ function onInput(ev) {
   if (el.dataset.kind === 'num') {
     const e = ensureEntry(ui.date);
     e.values[el.dataset.set] = el.value === '' ? undefined : Number(el.value);
+    ensureScoring(ui.date);
     debouncedSave(); refreshScores();
     return;
   }

@@ -346,6 +346,55 @@ click(q('#themeBtn')); const l=document.documentElement.classList.contains('dark
 click(q('#themeBtn')); const d=document.documentElement.classList.contains('dark');
 ok('theme toggles light->dark', l===false && d===true, 'light='+l+' dark='+d);
 
+// --- scoring snapshots: history is frozen, the day in progress is not
+const dk=n=>{const x=new Date();x.setDate(x.getDate()+n);
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+const stored=k=>{const r=JSON.parse(localStorage.getItem('cadence.v1'));
+  return r.profiles[r.activeProfileId].entries[k]};
+const pct=s=>parseInt(s,10);
+
+tab('today');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+click(q('[data-day="-1"]'));
+click(q('.toggle'));                                  // log yesterday
+const yKey=dk(-1), yScore=score();
+// Archive anything except the yes/no category — the toggle is how these tests log a day.
+const boolId=q('.toggle').dataset.set;
+const otherEdit=()=>qq('[data-edit]').filter(b=>b.dataset.edit!==boolId)[0];
+ok('logging a day records a scoring snapshot',
+   !!stored(yKey) && Object.keys(stored(yKey).scoring||{}).length===qq('.metric').length,
+   JSON.stringify(stored(yKey)&&stored(yKey).scoring));
+
+// archive a category the day was scored against — the past must not move
+tab('settings'); click(otherEdit()); click(q('[data-archive]'));
+tab('today');
+ok('archiving a category leaves a past day’s score alone', score()===yScore,
+   'was '+yScore+', now '+score());
+
+// the day in progress still follows the current setup
+click(q('[data-day="today"]')); click(q('.toggle'));
+const t1=pct(score());
+tab('settings'); click(otherEdit()); click(q('[data-archive]'));
+tab('today');
+ok('archiving still re-scores today', pct(score())>t1, 'was '+t1+'%, now '+score());
+ok('today’s snapshot matches the categories still active',
+   Object.keys(stored(dk(0)).scoring).length===qq('.metric').length,
+   Object.keys(stored(dk(0)).scoring).length+' snapshot vs '+qq('.metric').length+' rows');
+
+// a weight change is likewise frozen out of history
+click(q('[data-day="-1"]'));
+const wBefore=score();
+tab('settings'); click(otherEdit());
+const wt=q('[data-f="weight"]'); wt.value='5'; wt.dispatchEvent(new Event('change',{bubbles:true}));
+tab('today');
+ok('changing a weight leaves a past day’s score alone', score()===wBefore,
+   'was '+wBefore+', now '+score());
+
+// deleting takes the values with it, so the day rescores — but must not break
+tab('settings'); click(otherEdit()); click(q('[data-del]'));
+tab('today');
+ok('deleting a category leaves history scoring cleanly', score()!=='?' && !isNaN(pct(score())), score());
+
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';
