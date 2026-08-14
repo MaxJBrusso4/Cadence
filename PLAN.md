@@ -137,10 +137,99 @@ which is exactly the judgement the feature exists to avoid.
 task or writing a note used to create one, which scored the day 0% and dragged the
 averages down. `isLogged()` now requires at least one recorded value.
 
+## Stage 6 — Day types (planned 2026-08-13)
+
+Not every day is the same kind of day. A Saturday, a family event, a day of golf — the
+current app scores all of them against one weekday definition and reports failure. The fix
+is not a way to excuse days; it is a way to say what a day was *for*.
+
+**A day type is a name, an icon, and which categories count.** Nothing else — no per-type
+targets or weights to fill in. Targets and weights stay where they already are, on the
+category. Because `dayScore()` is a weighted *average* of whatever is active, switching a
+category off renormalises the rest automatically: turn off deep work on Saturday and the
+remaining categories account for the whole day.
+
+**Every day still scores.** No unscored day, no excused day, no way to pull a day out of
+the averages — an averages column that silently drops days stops meaning anything. An
+"Out with family" day is scored against the two or three things that were actually
+available to you, and it can legitimately hit 100%. A type must therefore keep at least
+one category active, or "all off" becomes a delete button through the back door.
+
+**Streaks need no changes.** Every day scores, so `streak()` and the goal threshold keep
+working untouched. This falls out of refusing the excused-day mechanism, which would have
+required deciding whether a skipped day holds or extends a streak.
+
+### Step 1 — Snapshot the scoring rules onto the day (no visible change)
+
+`entry.scoring` records the targets and weights in force when the day was logged:
+
+```js
+entry.scoring = { deepwork: { target: 4, weight: 3 }, sleep: { target: 8, weight: 2 } }
+```
+
+`dayScore()` reads that instead of live config, falling back to current behaviour when the
+field is absent — so existing days and old JSON backups read exactly as they do now, and
+there is still no migration step.
+
+This is the fix for the archiving bug below, and it has to land first: day types multiply
+the ways history could silently rewrite itself.
+
+### Step 2 — Day types, and the picker on the Day tab
+
+```js
+profile.dayTypes = [{ id, name, icon, color, weekdays: [0, 6], active: [metricId, …] }]
+entry.type = 'sat'   // resolved and written when the day is first logged
+```
+
+A built-in **Standard** type holds the current defaults and cannot be deleted, so nothing
+changes until it is asked to. On the Day tab, a type chip beside the date; the weekday
+supplies the default and clicking picks another. Inactive categories drop out of the rows
+and out of the ring, so the ring becomes a picture of *that* day's definition. Changing the
+type rewrites that day's snapshot and no other.
+
+### Step 3 — The editor in Settings
+
+Create, rename, recolour, delete types; assign default weekdays; tick which categories
+count. Checkboxes only — a type takes about fifteen seconds to make. Plus **save this day
+as a type** on the Day tab, so a type can be built by switching things off until the day
+looks right, without opening Settings at all.
+
+Deleting a type leaves logged days untouched: they keep their snapshot and show the name
+as written.
+
+### Step 4 — Make it visible in the history
+
+Calendar cells carry the type's colour. Trends splits averages by type — *weekdays 82 ·
+Saturdays 71 · out-days 94* — which is the first thing the app can say that it structurally
+could not before. Three lines of text, not more series on the chart, which already carries
+range chips, a delta, per-category averages and legend overlays.
+
+This is also the accountability mechanism. Off-days are never rationed or locked; they are
+simply counted in the same view as the score, which is enough when you are the only
+audience.
+
+### Removed in the same stage: closing the day
+
+Closing is the weakest feature in the app — it adds a concept, a button, a stamp, a
+calendar treatment and two of the six streak stats, and what it buys over having logged the
+day is thin. Automating it at midnight was considered and rejected: `closedAt` would come to
+mean "this date is in the past", which the calendar already knows, and on a static page with
+no background process it would really mean "retroactively stamp days on next open" — a
+mutation on launch, the pattern tasks deliberately avoid.
+
+Going: `isClosed()`, `closeHTML()`, the `data-close` / `data-reopen` handlers, the heatmap
+ring, and the two closed-day streak stats — the Calendar drops from six numbers to four.
+`closedAt` stays *readable* so old backups import untouched; it is simply never written or
+shown again. The writing nudge it used to trigger is not lost: the rotating prompt already
+renders above an empty note box on every visit to the Day tab.
+
+The heatmap cell spends its one decoration slot on the closed-day ring. Stage 6 needs that
+slot for day-type colour.
+
 ## Known, not yet fixed
 
 - Archiving a category changes historical day scores retroactively, since `dayScore()`
-  only ever averages the currently-active categories.
+  only ever averages the currently-active categories. **Stage 6 step 1 is the fix.**
 - The Trends chart at the 1y range still plots months that predate the profile — the same
   complaint the calendar had before it started at `profileStart()`.
 
