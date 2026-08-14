@@ -210,8 +210,13 @@ Two things learned in the build:
 - **Dropped categories stay on screen**, in a "not counted today" strip under the rows.
   Nothing should vanish silently — the point is to say what the day was for, out loud.
 
-Weekday defaults are stored (`weekdays: []`) but nothing sets them yet; that lands with the
-editor in step 3.
+**Weekday defaults are not being built.** The field (`weekdays: []`) is stored and read, but
+after using step 2 the manual pick was the right answer: choosing the kind of day *before*
+it starts is a statement of intent, whereas a type that assigns itself leaves you adjusting
+it afterwards — which is where cheating yourself lives. Decided 2026-08-14. The field stays
+in the shape in case it is ever wanted; nothing sets it.
+
+This shrinks step 3 to rename, recolour, re-tick and delete.
 
 ### Step 3 — The editor in Settings
 
