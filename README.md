@@ -54,7 +54,12 @@ a closed day stays fully editable, and you can reopen any day at any time.
 
 Left to right: the two tabs you touch daily, then the three for looking back, then settings.
 
-- **Day** — enter the day and watch it score live. The ring is segmented: each category
+- **Day** — enter the day and watch it score live. A Saturday isn't a Monday, so every day
+  has a **type**: a name and which categories count. Pick one from the chips by the date,
+  or drop a single category with the `×` on its row when the day just went differently —
+  what isn't counted sits below the rows, labelled, rather than vanishing. Once a day looks
+  right, **+ Save as type** turns it into a kind of day you can pick again. Types never
+  excuse a day: a day always scores against *something*, so the averages stay honest. The ring is segmented: each category
   owns a slice sized by its weight and filled to its own score, so you can see *which*
   categories carried the day, not just the total. Hovering a slice lights up its row and
   vice versa. Under it, a 14-day sparkline for context and a nudge naming the single
@@ -88,7 +93,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 118 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 132 interaction tests — open it in a browser and read the list at the bottom |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

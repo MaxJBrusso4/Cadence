@@ -355,9 +355,10 @@ const pct=s=>parseInt(s,10);
 
 tab('today');
 if (q('[data-day="today"]')) click(q('[data-day="today"]'));
-click(q('[data-day="-1"]'));
-click(q('.toggle'));                                  // log yesterday
-const yKey=dk(-1), yScore=score();
+// three days back: untouched by the tests above, so its snapshot is written here
+click(q('[data-day="-1"]')); click(q('[data-day="-1"]')); click(q('[data-day="-1"]'));
+click(q('.toggle'));
+const yKey=dk(-3), yScore=score();
 // Archive anything except the yes/no category — the toggle is how these tests log a day.
 const boolId=q('.toggle').dataset.set;
 const otherEdit=()=>qq('[data-edit]').filter(b=>b.dataset.edit!==boolId)[0];
@@ -394,6 +395,50 @@ ok('changing a weight leaves a past day’s score alone', score()===wBefore,
 tab('settings'); click(otherEdit()); click(q('[data-del]'));
 tab('today');
 ok('deleting a category leaves history scoring cleanly', score()!=='?' && !isNaN(pct(score())), score());
+
+// --- day types: what a day was for, not one definition for all 365
+tab('today');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+ok('every day starts with a type', !!q('.tchip.on'), q('.types')&&q('.types').textContent);
+const rowsAll=qq('.metric').length;
+const dropId=qq('.m-off')[0].dataset.dropm;
+click(qq('.m-off')[0]);
+ok('a category can be dropped from a single day', qq('.metric').length===rowsAll-1,
+   rowsAll+' -> '+qq('.metric').length);
+ok('the dropped category is shown, not hidden', !!q('[data-addm="'+dropId+'"]'));
+ok('the day is marked as adjusted', q('.types').textContent.includes('adjusted'));
+ok('dropping is recorded on the day, not the profile',
+   (stored(dk(0)).off||[]).length===1 && !(stored(dk(-3)).off||[]).length);
+const dropped=score();
+click(q('[data-addm="'+dropId+'"]'));
+ok('and can be put back', qq('.metric').length===rowsAll && score()!==dropped,
+   score()+' vs '+dropped);
+
+// saving the day as a type, which is the only way to make one until Settings catches up
+window.prompt=()=>'Out';
+click(qq('.m-off')[0]); click(q('[data-savetype]'));
+ok('the day can be saved as a new type', qq('.tchip').length>2 &&
+   q('.tchip.on').textContent.includes('Out'), q('.types').textContent);
+const outRows=qq('.metric').length;
+ok('a saved type keeps the categories it was built from', outRows===rowsAll-1,
+   outRows+' vs '+rowsAll);
+ok('choosing a type clears the day’s hand adjustments', !(stored(dk(0)).off||[]).length);
+
+// the type belongs to the day, not to the app
+click(q('[data-day="-1"]'));
+ok('yesterday keeps its own type', !q('.tchip.on').textContent.includes('Out'),
+   q('.tchip.on').textContent);
+click(q('[data-day="today"]'));
+ok('today is still Out', q('.tchip.on').textContent.includes('Out'));
+ok('the ring is drawn from the day’s own categories', qq('.seg-fill').length===outRows,
+   qq('.seg-fill').length+' arcs vs '+outRows+' rows');
+
+// a day always scores something — the last category can't be dropped
+window.prompt=()=>'Bare';
+while (qq('.m-off').length>1) click(qq('.m-off')[0]);
+click(qq('.m-off')[0]);
+ok('the last category can’t be dropped', qq('.metric').length===1, qq('.metric').length);
+ok('so the day still scores', score()!=='—', score());
 
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data

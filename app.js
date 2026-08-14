@@ -154,6 +154,80 @@ function isLogged(k) {
   });
 }
 
+/* ---- day types ----
+   Not every day is the same kind of day. A type is a name, an icon, and which categories
+   count — nothing else. Targets and weights stay on the category, and because dayScore()
+   averages whatever is active, switching a category off renormalises the rest. Every day
+   still scores: a type must keep at least one category, or "all off" becomes a way to
+   delete a day from the averages. */
+
+const STANDARD = { id: 'standard', name: 'Standard', icon: '◎', weekdays: [], active: null };
+
+/* `active: null` means "every category that isn't archived". Read with a default so old
+   profiles and old backups grow the field without a migration. */
+function dayTypes() {
+  const p = profile();
+  if (!p.dayTypes || !p.dayTypes.length) p.dayTypes = [Object.assign({}, STANDARD)];
+  return p.dayTypes;
+}
+function typeById(id) { return dayTypes().find(t => t.id === id) || null; }
+
+/* What kind of day this is: what it was logged as, else whatever the weekday defaults to. */
+function typeFor(k) {
+  const e = entry(k);
+  const named = e && e.type ? typeById(e.type) : null;
+  if (named) return named;
+  const wd = parseKey(k).getDay();
+  return dayTypes().find(t => (t.weekdays || []).indexOf(wd) >= 0) || dayTypes()[0];
+}
+
+/* The categories a type counts, in the profile's own order. */
+function activeFor(k) {
+  const t = typeFor(k), e = entry(k);
+  const off = (e && e.off) || [];
+  const byType = (!t || !t.active) ? metrics() : metrics().filter(m => t.active.indexOf(m.id) >= 0);
+  const kept = byType.filter(m => off.indexOf(m.id) < 0);
+  return kept.length ? kept : byType;
+}
+
+/* What the day is actually scored on right now: its frozen snapshot once logged, its
+   type's list before that. The snapshot is the source of truth, so a category switched
+   off for one day stays off for that day alone. */
+function dayActive(k) {
+  const e = entry(k);
+  if (e && e.scoring) {
+    const ids = Object.keys(e.scoring);
+    return metrics().filter(m => ids.indexOf(m.id) >= 0);
+  }
+  return activeFor(k);
+}
+
+/* Switching a category off for a single day. Recorded as a list of what was deliberately
+   dropped rather than by rewriting the snapshot, so the two cases stay distinguishable: a
+   category added later still joins the day, one switched off on purpose stays off.
+   Never down to zero — every day has to score. */
+function setMetricOnDay(k, id, on) {
+  const e = ensureEntry(k);
+  const off = e.off || (e.off = []);
+  const at = off.indexOf(id);
+  if (on) { if (at >= 0) off.splice(at, 1); }
+  else {
+    if (at >= 0) return true;
+    if (activeFor(k).length <= 1) return false;
+    off.push(id);
+  }
+  writeScoring(k);
+  return true;
+}
+
+/* Choosing a type rewrites that day's snapshot from the type, and no other day's. */
+function setDayType(k, id) {
+  const e = ensureEntry(k);
+  e.type = id;
+  e.off = [];            // picking a type is a fresh statement about the day
+  writeScoring(k);
+}
+
 /* The rules a day was scored by: which categories counted, with the targets and weights
    they had at the time. Frozen onto the entry when the day is first logged, so a change
    made in October cannot rescore August — archiving a category used to do exactly that.
@@ -162,7 +236,7 @@ function isLogged(k) {
 function scoringFor(k) {
   const e = entry(k);
   const snap = e && e.scoring;
-  if (!snap) return metrics().map(m => ({ m, weight: Number(m.weight) || 1 }));
+  if (!snap) return activeFor(k).map(m => ({ m, weight: Number(m.weight) || 1 }));
   const all = profile().metrics, out = [];
   Object.keys(snap).forEach(id => {
     const m = all.find(x => x.id === id);
@@ -177,19 +251,23 @@ function scoringFor(k) {
   return out;
 }
 
-/* Freeze the current rules onto a day. */
+/* Freeze the current rules onto a day: the categories its type counts, at today's
+   targets and weights. */
 function writeScoring(k) {
   const e = entry(k);
   if (!e) return;
   const snap = {};
-  metrics().forEach(m => { snap[m.id] = { target: m.target, weight: Number(m.weight) || 1 }; });
+  activeFor(k).forEach(m => { snap[m.id] = { target: m.target, weight: Number(m.weight) || 1 }; });
+  if (!Object.keys(snap).length) metrics().forEach(m => { snap[m.id] = { target: m.target, weight: Number(m.weight) || 1 }; });
   e.scoring = snap;
+  if (!e.type) e.type = typeFor(k).id;
 }
 
 /* The first value recorded fixes the day's rules. */
 function ensureScoring(k) { const e = entry(k); if (e && !e.scoring) writeScoring(k); }
 
-/* Editing categories should still reach the day in progress — but only that day. */
+/* Editing categories should still reach the day in progress — but only that day. Anything
+   switched off by hand lives in `entry.off`, so re-freezing here can't undo it. */
 function resnapshotToday() { const k = todayKey(); if (entry(k) && isLogged(k)) writeScoring(k); }
 
 /* Weighted day score, or null if nothing was logged that day. */
@@ -267,7 +345,10 @@ function viewToday() {
     </div></div>`;
   }
 
-  const rows = ms.map(m => {
+  const on = dayActive(k);
+  const off = ms.filter(m => on.indexOf(m) < 0);
+
+  const rows = on.map(m => {
     const v = e ? e.values[m.id] : undefined;
     const sc = e ? metricScore(m, v) : null;
     const st = metricStreak(m);
@@ -294,11 +375,31 @@ function viewToday() {
       </div>
       <div class="m-input">${control}</div>
       <div class="m-score">${sc == null ? '—' : Math.round(sc) + '%'}</div>
+      <button class="m-off" data-dropm="${m.id}" title="Doesn't count today" aria-label="Leave ${esc(m.name)} out of today">×</button>
     </div>`;
   }).join('');
 
+  /* Categories this kind of day doesn't count. Visible, so nothing disappears silently. */
+  const offStrip = off.length ? `<div class="offstrip">
+    <span class="sub">Not counted today</span>
+    ${off.map(m => `<button class="tchip ghost" data-addm="${m.id}" title="Count ${esc(m.name)} today">
+      <span style="color:${m.color}">${esc(m.icon || '•')}</span> ${esc(m.name)} +</button>`).join('')}
+  </div>` : '';
+
   const logged = streak(isLogged);
   const goodRun = streak(d => (dayScore(d) ?? -1) >= p.goal);
+
+  /* What kind of day this is. A Saturday and a Monday are not the same day, and the score
+     should be measured against what the day was actually for. */
+  const cur = typeFor(k);
+  const adjusted = !!(e && e.off && e.off.length);
+  const typeRow = `<div class="types">
+    ${dayTypes().map(t => `<button class="tchip ${t.id === cur.id ? 'on' : ''}" data-settype="${t.id}"
+      >${esc(t.icon || '◎')} ${esc(t.name)}</button>`).join('')}
+    <button class="tchip ghost" data-savetype="1"
+      title="Save the categories showing today as a new kind of day">+ Save as type</button>
+    ${adjusted ? '<span class="sub">adjusted for this day</span>' : ''}
+  </div>`;
 
   return `
   <div class="card">
@@ -313,6 +414,7 @@ function viewToday() {
           ${k !== todayKey() ? `<button class="btn sm ghost" data-day="today">Jump to today</button>` : ''}
           ${closeHTML(k)}
         </div>
+        ${typeRow}
         ${nudgeHTML(k)}
       </div>
       <div class="spacer"></div>
@@ -326,6 +428,7 @@ function viewToday() {
       </div>
     </div>
     ${rows}
+    ${offStrip}
   </div>
 
   <div class="card">
@@ -442,7 +545,7 @@ function sparkline(k) {
 
 /* The single unfinished category that would move the day's score most. */
 function nextBest(k) {
-  const e = entry(k), ms = metrics();
+  const e = entry(k), ms = dayActive(k);   // only what this kind of day counts
   const totalW = ms.reduce((n, m) => n + (Number(m.weight) || 1), 0);
   if (!ms.length || !totalW) return null;
   let best = null;
@@ -457,7 +560,7 @@ function nextBest(k) {
 /* Update the ring and each row's score/bar without rebuilding the DOM. */
 function refreshScores() {
   const e = entry(ui.date);
-  metrics().forEach(m => {
+  dayActive(ui.date).forEach(m => {
     const row = $(`.metric[data-row="${m.id}"]`);
     if (!row) return;
     const sc = e ? metricScore(m, e.values[m.id]) : null;
@@ -1137,7 +1240,7 @@ function metricEditor(m, i) {
 /* ============================ events ============================ */
 
 function onClick(ev) {
-  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen],[data-task],[data-taskdel],[data-taskadd],[data-gotasks]');
+  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1165,6 +1268,29 @@ function onClick(ev) {
     return;
   }
   if (d.gotasks) { ui.view = 'tasks'; return render(); }
+
+  /* --- day types --- */
+  if (d.settype) {
+    setDayType(ui.date, d.settype);
+    save(); toast(typeFor(ui.date).name);
+    return render();
+  }
+  if (d.dropm) {
+    if (!setMetricOnDay(ui.date, d.dropm, false)) { toast('A day has to count something'); return; }
+    save(); return render();
+  }
+  if (d.addm) { setMetricOnDay(ui.date, d.addm, true); save(); return render(); }
+  if (d.savetype) {
+    const name = (prompt('What kind of day is this?') || '').trim();
+    if (!name) return;
+    const ids = dayActive(ui.date).map(m => m.id);
+    if (!ids.length) { toast('A day has to count something'); return; }
+    const t = { id: uid(), name, icon: '◎', weekdays: [], active: ids };
+    dayTypes().push(t);
+    setDayType(ui.date, t.id);
+    save(); toast(`Saved “${name}”`);
+    return render();
+  }
 
   if (d.close) {
     const e = ensureEntry(d.close);

@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118.
+→ 81 → 90 → 112 → 118 → 132.
 
 ## Stage 5 — Tasks (built 2026-08-12)
 
@@ -183,7 +183,7 @@ Two details worth remembering:
 - **Deleted categories are skipped**, not scored as zero — `scoringFor()` drops ids it no
   longer recognises, since deleting already removes the values too.
 
-### Step 2 — Day types, and the picker on the Day tab
+### Step 2 — Day types, and the picker on the Day tab ✅
 
 ```js
 profile.dayTypes = [{ id, name, icon, color, weekdays: [0, 6], active: [metricId, …] }]
@@ -195,6 +195,23 @@ changes until it is asked to. On the Day tab, a type chip beside the date; the w
 supplies the default and clicking picks another. Inactive categories drop out of the rows
 and out of the ring, so the ring becomes a picture of *that* day's definition. Changing the
 type rewrites that day's snapshot and no other.
+
+Built 2026-08-13, with **save this day as a type** pulled forward from step 3 — without it
+the picker would have held only Standard and there would have been nothing to try. Switch
+categories off with the `×` on a row until the day looks right, then name it.
+
+Two things learned in the build:
+
+- **Deliberate drops are stored, not inferred.** `entry.off` lists what was switched off by
+  hand. Inferring it by comparing the snapshot against the type looked cleaner and was
+  wrong: a category added later reads as "missing on purpose", so new categories never
+  reached the day in progress. With `off`, re-freezing is safe and `resnapshotToday()` goes
+  back to one line.
+- **Dropped categories stay on screen**, in a "not counted today" strip under the rows.
+  Nothing should vanish silently — the point is to say what the day was for, out loud.
+
+Weekday defaults are stored (`weekdays: []`) but nothing sets them yet; that lands with the
+editor in step 3.
 
 ### Step 3 — The editor in Settings
 

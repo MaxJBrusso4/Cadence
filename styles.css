@@ -264,6 +264,39 @@ label.field > span { display: block; font-size: 12px; color: var(--muted); margi
   .m-sub { opacity: 1; }
 }
 
+/* ---------- day types ---------- */
+/* What kind of day this is. Chips rather than a dropdown: the choice is worth seeing
+   without a click, since picking the wrong one quietly changes what the score means. */
+.types { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.tchip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line-soft); color: var(--muted);
+  cursor: pointer; transition: color .12s, border-color .12s, background .12s;
+}
+.tchip:hover { color: var(--text); border-color: var(--faint); }
+.tchip.on {
+  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.tchip.ghost { background: transparent; border-style: dashed; }
+
+/* Categories this kind of day doesn't count — visible, so nothing vanishes silently. */
+.offstrip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 11px 18px; border-top: 1px solid var(--line-soft); background: var(--panel-2);
+}
+.offstrip .sub { margin-right: 4px; }
+
+/* Drop a category from this day alone. Quiet until the row is touched. */
+.m-off {
+  flex: none; width: 24px; height: 24px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--faint);
+  font-size: 14px; line-height: 1; opacity: 0; transition: opacity .12s, color .12s;
+}
+.metric:hover .m-off, .m-off:focus-visible { opacity: 1; }
+.m-off:hover { color: var(--bad); border-color: var(--line); }
+
 /* ---------- tasks ---------- */
 .tasks-head { align-items: flex-start; }
 /* A count, not a percentage — tasks are not scored, and a coloured ring would imply
