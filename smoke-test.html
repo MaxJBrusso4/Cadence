@@ -48,6 +48,17 @@ const score=()=>q('#ringVal')?q('#ringVal').textContent:'?';
 const tab=v=>click(q('.tab[data-view="'+v+'"]'));
 const type=(el,v)=>{el.value=v; el.dispatchEvent(new Event('input',{bubbles:true}));};
 
+// --- first run: someone who didn't build this has to be told where their days live
+ok('a new visitor gets the intro', !!q('.intro'));
+ok('it says the data is on this device only',
+   q('.intro').textContent.includes('this device, and nowhere else'), q('.intro').textContent.slice(0,80));
+ok('it points at the backup', q('.intro').textContent.includes('Export JSON'));
+ok('and says the starter categories are only examples',
+   q('.intro').textContent.includes('only examples'));
+click(q('[data-introdone]'));
+ok('dismissing it sticks', !q('.intro') &&
+   JSON.parse(localStorage.getItem('cadence.v1')).seenIntro===true);
+
 // --- today: bool toggle
 const tog=q('.toggle'); click(tog);
 ok('bool toggle flips on', q('.toggle').getAttribute('aria-pressed')==='true');

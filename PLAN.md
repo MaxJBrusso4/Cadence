@@ -1,6 +1,6 @@
 # Cadence — build plan
 
-**Status: six stages built and passing (164 smoke tests).** What follows is the plan they
+**Status: six stages built and passing (169 smoke tests).** What follows is the plan they
 were built from; it doubles as the record of what the app now does.
 
 Four pieces of work, in order. Nothing here needs a build step, a server, or a data
@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164. Stage 6 removed nine tests with the closing feature and added nine of its own,
+→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169. Stage 6 removed nine tests with the closing feature and added nine of its own,
 so the total holds at 146 while the coverage moved.
 
 ## Stage 5 — Tasks (built 2026-08-12)
@@ -334,17 +334,36 @@ earns its keep on a shared computer. Kept as-is — it works and removing it wou
 menu, isolation, wipe and import/export for no visible gain — but don't grow it on the
 theory that other users need it.
 
-In the order it should be done:
+1. **A pass on a phone** ✅ (2026-08-17). Measured every view at 390px: no horizontal
+   overflow anywhere, so the stage-4 layout held. Two real faults, both touch-only. The `×`
+   that drops a category from a day was revealed on hover, so on a phone it was invisible
+   and unusable — `@media (hover: none)` now shows it whatever the width, since a tablet is
+   wide and still can't hover. And tap targets ran 23–25px, including the type chips, which
+   are now a daily control; they're 32px+ under 640px. Touch overrides live at the *end* of
+   the stylesheet on purpose: every selector is a single class, so source order is what
+   decides, and the earlier media block was being overridden by the later definitions.
 
-1. **A pass on a phone.** The responsive CSS dates from stage 4 and predates day types — the
-   type chips, the tick grid and the not-counted strip have never been seen under 400px.
-2. **Say where the data lives.** A first-run line, and a nudge toward Export JSON. Someone
-   will otherwise log three weeks, clear their browser, and lose it without ever having
-   known that was possible. This matters more than any feature right now.
-3. **Mark the starter categories as examples**, or a new user will read them as the app
-   telling them what to value.
-4. **Decide how feedback gets back.** Nothing phones home, by design, so it is a text
-   message or nothing.
+2. **Say where the data lives** ✅. A first-run card, dismissed once and stored as
+   `db.seenIntro`, and a paragraph beside the export buttons in Settings. It says the four
+   things that matter: on this device only, nothing sent anywhere, clearing the browser
+   erases it, and Export JSON is the only backup.
+
+3. **Mark the starter categories as examples** ✅ — the last line of the first-run card.
+
+4. **Add to Home Screen** ✅. `manifest.webmanifest` plus apple-touch-icon and the iOS meta
+   tags, and `navigator.storage.persist()` asked for quietly at boot. This is the single
+   best protection for the iPhone users: Safari clears storage for sites untouched for about
+   a week, and an installed app is far less likely to be swept up. Icons are drawn by
+   `make-icons.py` from the ◎ mark — standard library only, run by hand, never needed to run
+   the app.
+
+5. **Decide how feedback gets back.** Still open. Nothing phones home, by design, so it is a
+   text message or nothing.
+
+**Then:** turn on GitHub Pages (needs the repo public) and send the link. One thing to do
+first — browser storage is keyed to the address it was opened from, so days logged from the
+local `file://` copy will not appear on the hosted one. Export from local, import on the
+hosted link, then use only the link.
 
 ## Known, not yet fixed
 

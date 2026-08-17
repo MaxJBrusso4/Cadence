@@ -7,10 +7,20 @@ A single-page web app for tracking how efficient your days are, against the cate
 
 Double-click `index.html` (or drag it into a browser). That's it.
 
+**On a phone**, open the link and then add it to your home screen — Share → *Add to Home
+Screen* on iPhone, the menu → *Install app* on Android. It opens like a real app, and on an
+iPhone it also makes your saved days much less likely to be cleared away.
+
 Data is saved in the browser's `localStorage` under the key `cadence.v1`, which means:
 
-- it never leaves the machine, and works offline;
-- each browser/device holds its own copy — use **Settings → Export JSON** to move it.
+- it never leaves the machine — there is no account, no server, and nothing is sent
+  anywhere, so nobody else can see your days, including whoever shared the link with you;
+- each browser and device holds its own copy — your phone and your laptop are separate;
+- **clearing your browsing data erases it.** Use **Settings → Export JSON** every so often
+  and keep the file somewhere safe; **Import JSON** puts everything back.
+
+The app asks the browser to hold on to its storage, and adding it to your home screen helps
+too, but an exported backup is the only real safety net.
 
 To serve it over HTTP instead (e.g. to open it from a phone on the same network):
 
@@ -96,7 +106,9 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 164 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 169 interaction tests — open it in a browser and read the list at the bottom |
+| `manifest.webmanifest`, `icon-*.png` | home-screen icon and name |
+| `make-icons.py` | redraws the icons; run by hand, never needed to run the app |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

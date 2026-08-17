@@ -351,6 +351,30 @@ function render() {
 
 /* ============================ view: today ============================ */
 
+/* Shown once, to someone who didn't build this and has no idea where their data goes.
+   Four things, in the order they'll matter, and then it's gone. */
+function introHTML() {
+  if (db.seenIntro) return '';
+  return `
+  <div class="card intro">
+    <div class="card-head"><h2>Before you start</h2></div>
+    <div class="card-body">
+      <p><b>Your days are saved on this device, and nowhere else.</b> There's no account and
+      no server — nothing you write is sent anywhere, and nobody else can see it, including
+      whoever sent you this link.</p>
+      <p><b>That also means it can be lost.</b> Clearing your browser's history or data
+      erases it, the way it erases saved passwords. Every so often, use
+      <b>Settings → Export JSON</b> to save a backup file somewhere you keep photos.
+      <b>Import JSON</b> puts everything back.</p>
+      <p><b>On an iPhone, tap Share → Add to Home Screen.</b> It opens like a real app, and
+      your days are much less likely to be cleared away.</p>
+      <p>The categories below are only examples. Change them in <b>Settings</b> to whatever
+      actually makes a good day for you.</p>
+      <button class="btn primary" data-introdone="1">Got it</button>
+    </div>
+  </div>`;
+}
+
 function viewToday() {
   const ms = metrics();
   const k = ui.date;
@@ -358,7 +382,7 @@ function viewToday() {
   const p = profile();
 
   if (!ms.length) {
-    return `<div class="card"><div class="empty">
+    return introHTML() + `<div class="card"><div class="empty">
       Nothing tracked yet — decide what makes a good day for you.<br><br>
       <button class="btn primary" data-go="settings">Add your first category</button>
     </div></div>`;
@@ -422,7 +446,7 @@ function viewToday() {
     ${adjusted ? '<span class="sub">adjusted for this day</span>' : ''}
   </div>`;
 
-  return `
+  return introHTML() + `
   <div class="card">
     <div class="day-head">
       ${ring(k)}
@@ -1249,12 +1273,18 @@ function viewSettings() {
 
   <div class="card">
     <div class="card-head"><h2>Data</h2><span class="sub">stored only in this browser</span></div>
-    <div class="card-body row" style="flex-wrap:wrap;gap:8px">
+    <div class="card-body">
+      <p class="sub" style="margin:0 0 14px">Your days live in this browser on this device.
+      Clearing your browsing data erases them, and they don't follow you to another phone or
+      computer. <b>Export JSON is your only backup</b> — keep the file somewhere safe, and
+      Import JSON brings everything back.</p>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
       <button class="btn" data-export="json">Export JSON (backup)</button>
       <button class="btn" data-export="csv">Export CSV</button>
       <button class="btn" data-import="1">Import JSON…</button>
       <span class="spacer"></span>
       <button class="btn danger" data-wipe="1">Delete this profile</button>
+      </div>
     </div>
   </div>`;
 }
@@ -1353,7 +1383,7 @@ function metricEditor(m, i) {
 /* ============================ events ============================ */
 
 function onClick(ev) {
-  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick],[data-taddcat]');
+  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-introdone],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick],[data-taddcat]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1381,6 +1411,7 @@ function onClick(ev) {
     return;
   }
   if (d.gotasks) { ui.view = 'tasks'; return render(); }
+  if (d.introdone) { db.seenIntro = true; save(); return render(); }
 
   /* --- day types --- */
   if (d.settype) {
@@ -1816,5 +1847,12 @@ viewEl.addEventListener('input', onInput);
 
 applyTheme();
 render();
+
+/* Ask the browser to hang on to this profile's days if it ever runs short of space.
+   Granted quietly on a site that gets used; treated as a hint elsewhere. Either way
+   there is nothing to tell the user about, so it fails silently. */
+if (navigator.storage && navigator.storage.persist) {
+  try { navigator.storage.persist(); } catch (e) { /* nothing to do about it */ }
+}
 
 })();
