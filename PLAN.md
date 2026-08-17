@@ -1,6 +1,6 @@
 # Cadence — build plan
 
-**Status: six stages built and passing (146 smoke tests).** What follows is the plan they
+**Status: six stages built and passing (155 smoke tests).** What follows is the plan they
 were built from; it doubles as the record of what the app now does.
 
 Four pieces of work, in order. Nothing here needs a build step, a server, or a data
@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146. Stage 6 removed nine tests with the closing feature and added nine of its own,
+→ 81 → 90 → 112 → 118 → 132 → 146 → 155. Stage 6 removed nine tests with the closing feature and added nine of its own,
 so the total holds at 146 while the coverage moved.
 
 ## Stage 5 — Tasks (built 2026-08-12)
@@ -263,6 +263,27 @@ Two corrections that came with it, both from the issues list:
   `bestStreak()` understand a third answer, `'skip'`, which holds a run without extending
   it. A Saturday that doesn't count deep work no longer breaks a deep-work streak — you
   can't fail at something you weren't measured on.
+
+### Step 5 — A category that belongs to one kind of day ✅
+
+Built 2026-08-16, straight off first use: on a day out with a girlfriend, none of the
+standard categories apply and the only honest thing to record is "have a good day". Ticking
+existing categories couldn't express that, because every category applied to every day.
+
+A category may now carry `forType`, and then it exists on that kind of day and nowhere else:
+
+- **"Everything" excludes them.** A type with `active: null` counts every *general*
+  category, never another type's own — otherwise "have a good day" would turn up on a
+  Tuesday.
+- **The not-counted strip is scoped too.** A category belonging to another kind of day
+  isn't "not counted today", it doesn't exist here, so it isn't offered.
+- **Deleting a type frees its categories** rather than orphaning them — they become
+  ordinary ones, and the confirmation says so by name. Nothing is lost and nothing is left
+  pointing at a type that has gone.
+
+Added from inside the type's editor (**+ Something only this kind of day counts**), which is
+also where it reads best: the thing that only matters here is defined here. Settings badges
+it `only on Girlfriend day` so it is never a mystery in the category list.
 
 ### Removed in the same stage: closing the day
 

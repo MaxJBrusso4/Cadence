@@ -270,6 +270,7 @@ label.field > span { display: block; font-size: 12px; color: var(--muted); margi
 
 /* Which categories a kind of day counts: tick boxes, nothing to fill in. */
 .ticks { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.ticks-add { padding-top: 6px; }
 
 /* Categories this kind of day doesn't count — visible, so nothing vanishes silently. */
 .offstrip {

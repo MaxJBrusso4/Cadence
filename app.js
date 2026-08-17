@@ -180,10 +180,18 @@ function typeFor(k) {
 function activeFor(k) {
   const t = typeFor(k), e = entry(k);
   const off = (e && e.off) || [];
-  const byType = (!t || !t.active) ? metrics() : metrics().filter(m => t.active.indexOf(m.id) >= 0);
+  // A category can belong to one kind of day — "have a good day" on a day out means
+  // nothing on a Tuesday. Those never count anywhere else, and "everything" doesn't
+  // include them.
+  const byType = (!t || !t.active)
+    ? metrics().filter(m => !m.forType)
+    : metrics().filter(m => t.active.indexOf(m.id) >= 0 && (!m.forType || m.forType === t.id));
   const kept = byType.filter(m => off.indexOf(m.id) < 0);
   return kept.length ? kept : byType;
 }
+
+/* The categories a kind of day may tick: the general ones, plus its own. */
+function poolFor(t) { return metrics().filter(m => !m.forType || m.forType === t.id); }
 
 /* What the day is actually scored on right now: its frozen snapshot once logged, its
    type's list before that. The snapshot is the source of truth, so a category switched
@@ -356,7 +364,9 @@ function viewToday() {
   }
 
   const on = dayActive(k);
-  const off = ms.filter(m => on.indexOf(m) < 0);
+  // Only what this kind of day could count — a category that belongs to another kind
+  // isn't "not counted today", it simply doesn't exist here.
+  const off = poolFor(typeFor(k)).filter(m => on.indexOf(m) < 0);
 
   const rows = on.map(m => {
     const v = e ? e.values[m.id] : undefined;
@@ -1184,7 +1194,8 @@ function viewSettings() {
     return `<div class="mrow">
       <div class="m-icon" style="color:${m.color}">${esc(m.icon || '•')}</div>
       <div class="m-main">
-        <div class="m-name">${esc(m.name)} ${m.archived ? '<span class="pill">archived</span>' : ''}</div>
+        <div class="m-name">${esc(m.name)} ${m.archived ? '<span class="pill">archived</span>' : ''}${
+          m.forType && typeById(m.forType) ? `<span class="pill">only on ${esc(typeById(m.forType).name)}</span>` : ''}</div>
         <div class="m-sub">${TYPES[m.type].label}${m.type === 'target' ? ` · ${m.goal === 'atMost' ? 'at most' : 'at least'} ${m.target}${m.unit ? ' ' + m.unit : ''}` : ''} · weight ×${m.weight}</div>
       </div>
       <button class="btn sm ghost" data-move="${m.id}" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
@@ -1257,8 +1268,9 @@ function typeSummary(t) {
 /* A type is a name, an icon, a colour and a set of tick boxes. No targets, no weights —
    those live on the category, once, and a type never overrides them. */
 function typeEditor(t) {
-  const ms = metrics();
-  const isOn = m => !t.active || t.active.indexOf(m.id) >= 0;
+  const ms = poolFor(t);
+  const isOn = m => t.active ? t.active.indexOf(m.id) >= 0 : !m.forType;
+  const general = ms.filter(m => !m.forType);
   const onCount = ms.filter(isOn).length;
   return `<div class="trow editing" style="align-items:flex-start">
     <div class="m-main">
@@ -1272,9 +1284,11 @@ function typeEditor(t) {
           <div class="swatches">${PALETTE.map(c =>
             `<button data-tcolor="${c}" class="${t.color === c ? 'on' : ''}" style="background:${c}"></button>`).join('')}</div></label>
 
-        <div class="field full"><span>Counts these categories${onCount === ms.length ? ' — all of them, so new ones join automatically' : ''}</span>
+        <div class="field full"><span>Counts these categories${!t.active ? ' — all of them, so new ones join automatically' : ''}</span>
           <div class="ticks">${ms.map(m => `<button class="tchip ${isOn(m) ? 'on' : ''}" data-ttick="${m.id}">
-            <span style="color:${m.color}">${esc(m.icon || '•')}</span> ${esc(m.name)}</button>`).join('')}</div>
+            <span style="color:${m.color}">${esc(m.icon || '•')}</span> ${esc(m.name)}${m.forType ? ' <span class="sub">only here</span>' : ''}</button>`).join('')}</div>
+          <div class="ticks-add"><button class="tchip ghost" data-taddcat="${t.id}"
+            title="A category that exists only on this kind of day">+ Something only this kind of day counts</button></div>
         </div>
 
         <div class="full row">
@@ -1336,7 +1350,7 @@ function metricEditor(m, i) {
 /* ============================ events ============================ */
 
 function onClick(ev) {
-  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick]');
+  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick],[data-taddcat]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1386,22 +1400,42 @@ function onClick(ev) {
   if (d.ttick) {
     const t = typeById(ui.editingType);
     if (!t) return;
-    const ms = metrics();
-    const list = t.active ? ms.filter(m => t.active.indexOf(m.id) >= 0).map(m => m.id) : ms.map(m => m.id);
+    const ms = poolFor(t);
+    const general = ms.filter(m => !m.forType).map(m => m.id);
+    const list = t.active ? ms.filter(m => t.active.indexOf(m.id) >= 0).map(m => m.id) : general.slice();
     const at = list.indexOf(d.ttick);
     if (at >= 0) {
       if (list.length <= 1) { toast('A day has to count something'); return; }
       list.splice(at, 1);
     } else list.push(d.ttick);
-    // All of them means "all of them" — kept as null so categories added later join in.
-    t.active = list.length === ms.length ? null : list;
+    // "All of them" is kept as null so categories added later join in — but only when the
+    // set really is every general category and none of this type's own.
+    const isAllGeneral = list.length === general.length && general.every(id => list.indexOf(id) >= 0);
+    t.active = isAllGeneral ? null : list;
     resnapshotToday(); save(); return render();
+  }
+  if (d.taddcat) {
+    const t = typeById(d.taddcat);
+    if (!t) return;
+    const name = (prompt(`What should ${t.name} count?`) || '').trim();
+    if (!name) return;
+    const m = mk(name, '•', 'bool', { color: PALETTE[profile().metrics.length % PALETTE.length] });
+    m.forType = t.id;                       // exists on this kind of day and nowhere else
+    profile().metrics.push(m);
+    t.active = poolFor(t).filter(x => x.id === m.id || (t.active ? t.active.indexOf(x.id) >= 0 : !x.forType)).map(x => x.id);
+    resnapshotToday(); save(); toast(`Added “${name}” to ${t.name}`);
+    return render();
   }
   if (d.tdel) {
     const t = typeById(d.tdel);
     if (!t) return;
-    if (!confirm(`Delete the "${t.name}" kind of day? Days already logged keep the score they were given.`)) return;
+    const own = profile().metrics.filter(m => m.forType === t.id);
+    const note = own.length
+      ? ` Its own categor${own.length === 1 ? 'y' : 'ies'} (${own.map(m => m.name).join(', ')}) will become ordinary ones — nothing is lost.`
+      : '';
+    if (!confirm(`Delete the "${t.name}" kind of day? Days already logged keep the score they were given.${note}`)) return;
     const p = profile();
+    own.forEach(m => { delete m.forType; });
     p.dayTypes = dayTypes().filter(x => x.id !== d.tdel);
     ui.editingType = null; save(); toast('Kind of day deleted'); return render();
   }

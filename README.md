@@ -54,7 +54,9 @@ Left to right: the two tabs you touch daily, then the three for looking back, th
   has a **type**: a name and which categories count. Pick one from the chips by the date,
   or drop a single category with the `×` on its row when the day just went differently —
   what isn't counted sits below the rows, labelled, rather than vanishing. Once a day looks
-  right, **+ Save as type** turns it into a kind of day you can pick again. Types never
+  right, **+ Save as type** turns it into a kind of day you can pick again. A kind of day
+  can also have a category all of its own — on a day out, none of the usual things apply
+  and "have a good day" is the whole of it — added from that type in Settings. Types never
   excuse a day: a day always scores against *something*, so the averages stay honest. The ring is segmented: each category
   owns a slice sized by its weight and filled to its own score, so you can see *which*
   categories carried the day, not just the total. Hovering a slice lights up its row and
@@ -92,7 +94,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 146 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 155 interaction tests — open it in a browser and read the list at the bottom |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

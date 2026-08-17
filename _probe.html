@@ -1,0 +1,31 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<header class="topbar"><div class="wrap topbar-inner"><div class="brand"></div><div class="topbar-right">
+<div class="profile-switch"><button id="profileBtn"><span id="profileAvatar"></span><span id="profileName"></span></button>
+<div id="profileMenu" hidden></div></div><button id="themeBtn"></button></div></div>
+<nav class="wrap tabs" id="tabs">
+<button class="tab is-active" data-view="today">Day</button><button class="tab" data-view="tasks">Tasks</button>
+<button class="tab" data-view="trends">Trends</button><button class="tab" data-view="calendar">Calendar</button>
+<button class="tab" data-view="journal">Journal</button><button class="tab" data-view="settings">Settings</button></nav>
+</header><main class="wrap" id="view"></main><div id="toast" hidden></div><input type="file" id="importFile" hidden>
+<script>localStorage.removeItem('cadence.v1');window.prompt=()=>'Golf';</script>
+<script src="/app.js"></script>
+<script>
+const q=s=>document.querySelector(s),qq=s=>[...document.querySelectorAll(s)];
+const click=el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+click(q('.toggle'));                      // log today
+click(qq('.m-off')[0]); click(q('[data-savetype]'));   // make a "Golf" type
+click(q('.tab[data-view="settings"]'));
+const rows=qq('.trow').map(r=>r.querySelector('.m-name')?r.querySelector('.m-name').textContent:'(editor)');
+const out=['type rows: '+JSON.stringify(rows),
+           'edit buttons: '+qq('[data-tedit]').length];
+click(qq('[data-tedit]')[1]);             // open Golf
+out.push('golf editor open: '+!!q('[data-tf="name"]'));
+out.push('golf has a Delete button: '+!!q('[data-tdel]'));
+const n=q('[data-tf="name"]'); n.value='Golf day'; n.dispatchEvent(new Event('change',{bubbles:true}));
+const db=JSON.parse(localStorage.getItem('cadence.v1'));
+out.push('renamed to: '+db.profiles[db.activeProfileId].dayTypes[1].name);
+click(q('[data-tdel]'));
+const db2=JSON.parse(localStorage.getItem('cadence.v1'));
+out.push('types after delete: '+db2.profiles[db2.activeProfileId].dayTypes.map(t=>t.name).join(', '));
+const pre=document.createElement('pre');pre.id='r';pre.textContent=out.join('\n');document.body.appendChild(pre);
+</script></body></html>

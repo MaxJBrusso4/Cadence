@@ -501,6 +501,49 @@ ok('per-category averages say how many days they cover', covers.length>1 && cove
 ok('a category dropped from a day isn’t averaged over it',
    Math.min(...covers) < Math.max(...covers), covers.join('/'));
 
+// --- a kind of day with its own category: none of the usual things apply
+tab('settings');
+window.prompt=()=>'Girlfriend day';
+tab('today');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+click(q('[data-savetype]'));                       // start from whatever today is
+tab('settings');
+const gfRow=qq('.trow').length-1;
+click(qq('[data-tedit]')[gfRow]);
+window.prompt=()=>'Have a good day';
+click(q('[data-taddcat]'));
+ok('a category can be added to one kind of day',
+   q('#view').textContent.includes('Have a good day'));
+ok('and is marked as belonging to it', q('.ticks').textContent.includes('only here'));
+
+// leave only that one ticked
+while (qq('.ticks .tchip.on').length>1) {
+  const off=qq('.ticks .tchip.on').find(c=>!c.textContent.includes('Have a good day'));
+  if (!off) break;
+  click(off);
+}
+ok('a kind of day can count one thing and nothing else', qq('.ticks .tchip.on').length===1,
+   qq('.ticks .tchip.on').map(c=>c.textContent.trim()).join('|'));
+click(q('[data-tdone]'));
+
+tab('today');
+ok('the day shows only that category', qq('.metric').length===1, qq('.metric').length);
+ok('and it is the right one', q('.metric .m-name').textContent.includes('Have a good day'),
+   q('.metric .m-name').textContent);
+click(q('.toggle'));
+ok('ticking it scores the day 100%', score()==='100%', score());
+
+// and it exists nowhere else
+click(q('[data-settype="standard"]'));
+ok('a standard day never sees it', !q('#view').textContent.includes('Have a good day'),
+   qq('.metric').length+' rows');
+ok('nor does it sit in the not-counted strip',
+   !q('.offstrip') || !q('.offstrip').textContent.includes('Have a good day'));
+
+tab('settings');
+ok('settings says which kind of day it belongs to',
+   q('#view').textContent.includes('only on Girlfriend day'));
+
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';
