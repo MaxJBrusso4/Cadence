@@ -63,7 +63,9 @@ Left to right: the two tabs you touch daily, then the three for looking back, th
   vice versa. Under it, a 14-day sparkline for context and a nudge naming the single
   unfinished category that would move the score most. `←` / `→` move between days.
 - **Tasks** — what has to get done, written the night before or that morning. Type and
-  press Enter, tick it off when it's done. **Anything you don't tick follows you to the
+  press Enter, tick it off when it's done. **Plan tomorrow →** moves you a day ahead so you
+  can write tomorrow's list tonight; it stays on tomorrow and doesn't clutter today. (Only
+  Tasks goes forward — a day that hasn't happened can't be scored.) **Anything you don't tick follows you to the
   next day**, wearing the age it has earned (`4d`) so you can see what's going stale.
   Tasks are deliberately kept *out* of the score: they're one-off things, not habits, and
   counting them would make the daily percentage mean less rather than more.
@@ -94,7 +96,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 155 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 164 interaction tests — open it in a browser and read the list at the bottom |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

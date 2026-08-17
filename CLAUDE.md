@@ -10,7 +10,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 | `index.html` | page shell: topbar, six tabs, `<main id="view">`, toast, hidden file input |
 | `app.js` | everything — state, scoring, all six views, events (~1500 lines, one IIFE) |
 | `styles.css` | all styling, light + dark via CSS custom properties |
-| `smoke-test.html` | 155 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
+| `smoke-test.html` | 164 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
 | `README.md` | user-facing docs — what the app does |
 | `PLAN.md` | build record: what's shipped, what's known-broken, ideas not taken up |
 
@@ -18,7 +18,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 
 - **Verify by opening `smoke-test.html` in a browser** and confirming the count and that
   nothing failed. There is no CLI test runner. Add cases for new behaviour — the count has
-  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 → 155 across stages, so it goes in the commit.
+  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 across stages, so it goes in the commit.
 - **No build, no npm, no dependencies.** Plain DOM APIs and template-literal HTML. Keep it
   that way — the whole point is that the file opens from disk.
 - **Keep `README.md` and `PLAN.md` current** in the same commit as the change. PLAN.md
@@ -61,7 +61,10 @@ rating 1–10.
   they import untouched, but nothing writes or shows it. Don't rebuild it: automating it at
   midnight would make it mean "this date is in the past", and by hand it earned a button, a
   stamp and two of six streak stats for very little. See PLAN.md.
-- **Tasks are unscored and never move.** They live on the day they were written; carry-over
+- **Tasks are unscored and never move.** They live on the day they were written — including
+  a day still to come, since the Tasks tab may navigate forward. The Day tab may not, and
+  `render()` clamps `ui.date` back to today outside Tasks, so nothing can score the future.
+  Carry-over
   of unfinished tasks is computed at render time in `tasksOn(k)`, so nothing mutates at
   midnight. Deliberately excluded from `dayScore()` — a progress ring was built and removed
   because "1 of 5 done" rendered as a red 20%, which is the judgement the feature exists to

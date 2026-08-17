@@ -1,6 +1,6 @@
 # Cadence — build plan
 
-**Status: six stages built and passing (155 smoke tests).** What follows is the plan they
+**Status: six stages built and passing (164 smoke tests).** What follows is the plan they
 were built from; it doubles as the record of what the app now does.
 
 Four pieces of work, in order. Nothing here needs a build step, a server, or a data
@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146 → 155. Stage 6 removed nine tests with the closing feature and added nine of its own,
+→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164. Stage 6 removed nine tests with the closing feature and added nine of its own,
 so the total holds at 146 while the coverage moved.
 
 ## Stage 5 — Tasks (built 2026-08-12)
@@ -284,6 +284,25 @@ A category may now carry `forType`, and then it exists on that kind of day and n
 Added from inside the type's editor (**+ Something only this kind of day counts**), which is
 also where it reads best: the thing that only matters here is defined here. Settings badges
 it `only on Girlfriend day` so it is never a mystery in the category list.
+
+### Step 6 — Writing tomorrow's tasks tonight ✅
+
+Built 2026-08-16. Tasks were already stored per day and the empty state already invited
+"tonight, for tomorrow" — the only thing in the way was the `→` button, disabled past today
+on every tab. Nothing structural had to change.
+
+The Tasks tab now goes forward; the Day tab still doesn't, because a day that hasn't
+happened can't be scored. Navigating forward is refused outside Tasks, and `render()` lands
+the Day tab back on today if it ever finds itself in the future — so the two rules can't be
+crossed by switching tabs.
+
+Tomorrow's task sits on tomorrow's key, so it doesn't appear on today's list, and today's
+unfinished ones already show up on tomorrow through the usual carry-over. Nothing migrates
+at midnight, as before. A future day with tasks and no values is still not a logged day, so
+it can't drag an average — `isLogged()` was already the guard that made this safe.
+
+A **Plan tomorrow →** button sits next to the arrows on today, since the plain `→` wasn't
+telling anyone the feature existed.
 
 ### Removed in the same stage: closing the day
 

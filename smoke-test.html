@@ -544,6 +544,38 @@ tab('settings');
 ok('settings says which kind of day it belongs to',
    q('#view').textContent.includes('only on Girlfriend day'));
 
+// --- planning tomorrow tonight
+tab('tasks');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+ok('today offers a way to plan tomorrow', !!q('[data-day="+1"]:not([disabled])'));
+click(q('.day-nav [data-day="+1"]'));
+ok('the tasks tab goes forward a day', q('.day-meta h1').textContent==='Tomorrow',
+   q('.day-meta h1').textContent);
+ok('and says which day you are writing for',
+   q('#taskInput').placeholder.includes('tomorrow'), q('#taskInput').placeholder);
+type(q('#taskInput'),'call the plumber'); click(q('[data-taskadd]'));
+ok('a task can be written for tomorrow', q('#view').textContent.includes('call the plumber'));
+ok('it is stored on tomorrow, not today', (()=>{
+  const r=JSON.parse(localStorage.getItem('cadence.v1')), p=r.profiles[r.activeProfileId];
+  const t=dk(1), td=dk(0);
+  return (p.entries[t].tasks||[]).some(x=>x.text==='call the plumber')
+      && !((p.entries[td]||{}).tasks||[]).some(x=>x.text==='call the plumber');
+})());
+click(q('[data-day="today"]'));
+ok('tomorrow’s task is not on today’s list', !q('#view').textContent.includes('call the plumber'));
+
+// planning ahead never lets you score a day that hasn't happened
+click(q('.day-nav [data-day="+1"]'));
+tab('today');
+ok('the day tab lands back on today', q('.day-meta h1').textContent==='Today',
+   q('.day-meta h1').textContent);
+ok('and still refuses to go forward', !!q('[data-day="+1"][disabled]'));
+ok('a day in the future is never scored', (()=>{
+  const r=JSON.parse(localStorage.getItem('cadence.v1')), p=r.profiles[r.activeProfileId];
+  const e=p.entries[dk(1)];
+  return !!e && !Object.keys(e.values||{}).length;
+})());
+
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';

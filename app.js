@@ -338,6 +338,7 @@ function bestStreak(pass) {
 
 function render() {
   const p = profile();
+  if (ui.view !== 'tasks' && ui.date > todayKey()) ui.date = todayKey();
   $('#profileName').textContent = p.name;
   $('#profileAvatar').textContent = p.avatar;
   $$('#tabs .tab').forEach(t => t.classList.toggle('is-active', t.dataset.view === ui.view));
@@ -670,8 +671,9 @@ function viewTasks() {
         <div class="sub">${open ? `${open} to do` : rows.length ? 'all done' : 'nothing written down yet'}${done ? ` · ${done} done` : ''}</div>
         <div class="day-nav">
           <button class="btn sm" data-day="-1">←</button>
-          <button class="btn sm" data-day="+1" ${k >= todayKey() ? 'disabled' : ''}>→</button>
+          <button class="btn sm" data-day="+1">→</button>
           ${k !== todayKey() ? `<button class="btn sm ghost" data-day="today">Jump to today</button>` : ''}
+          ${k === todayKey() ? `<button class="btn sm ghost" data-day="+1">Plan tomorrow →</button>` : ''}
         </div>
       </div>
       <div class="spacer"></div>
@@ -679,7 +681,8 @@ function viewTasks() {
     </div>
 
     <div class="task-add">
-      <input class="input" id="taskInput" placeholder="What has to happen ${k === todayKey() ? 'today' : 'that day'}? Press Enter"
+      <input class="input" id="taskInput" placeholder="What has to happen ${
+        k === todayKey() ? 'today' : k === shiftKey(todayKey(), 1) ? 'tomorrow' : 'that day'}? Press Enter"
         autocomplete="off">
       <button class="btn primary sm" data-taskadd="1">Add</button>
     </div>
@@ -1461,7 +1464,10 @@ function onClick(ev) {
   }
 
   if (d.day) {
-    ui.date = d.day === 'today' ? todayKey() : shiftKey(ui.date, Number(d.day));
+    const to = d.day === 'today' ? todayKey() : shiftKey(ui.date, Number(d.day));
+    // You can write tomorrow's tasks tonight, but you can't score a day that hasn't
+    // happened — so only the Tasks tab goes forward.
+    ui.date = (to > todayKey() && ui.view !== 'tasks') ? todayKey() : to;
     return render();
   }
 
