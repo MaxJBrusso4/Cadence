@@ -112,11 +112,6 @@ function ensureEntry(k) {
   if (!p.entries[k]) p.entries[k] = { values: {}, note: '' };
   return p.entries[k];
 }
-/* Closing a day is a ritual and a stat, nothing more — dayScore() does not care.
-   Reopening is always allowed, and editing a closed day leaves the stamp alone so
-   fixing a typo never costs you a streak. */
-function isClosed(k) { const e = entry(k); return !!(e && e.closedAt); }
-
 function scoreColor(s) {
   if (s == null) return 'var(--faint)';
   if (s >= 80) return 'var(--good)';
@@ -292,16 +287,29 @@ function lastNDays(n, endKey) {
 }
 
 /* Consecutive days (ending today or yesterday) where `pass(key)` is true. */
+/* `pass` may return 'skip' for a day the question doesn't apply to — it holds the run
+   without extending it, so a streak survives days it was never measured on. */
 function streak(pass) {
-  let k = todayKey(), n = 0;
-  if (!pass(k)) { k = shiftKey(k, -1); if (!pass(k)) return 0; }
-  while (pass(k)) { n++; k = shiftKey(k, -1); }
+  let k = todayKey(), n = 0, r = pass(k);
+  if (!r) { k = shiftKey(k, -1); r = pass(k); if (!r) return 0; }
+  while (r) { if (r !== 'skip') n++; k = shiftKey(k, -1); r = pass(k); }
   return n;
 }
+/* Was this category part of what the day was measured on? Days logged before snapshots
+   existed counted everything, so they answer yes. */
+function countedOn(k, id) {
+  const e = entry(k);
+  if (!e) return false;
+  if (!e.scoring) return true;
+  return Object.prototype.hasOwnProperty.call(e.scoring, id);
+}
 function metricStreak(m) {
+  // A Saturday that doesn't count deep work shouldn't break a deep-work streak. Days the
+  // category wasn't measured on are skipped, not failed.
   return streak(k => {
     const e = entry(k);
     if (!e) return false;
+    if (!countedOn(k, m.id)) return isLogged(k) ? 'skip' : false;
     return metricScore(m, e.values[m.id]) >= 100;
   });
 }
@@ -310,7 +318,9 @@ function bestStreak(pass) {
   if (!keys.length) return 0;
   let best = 0, run = 0, prev = null;
   for (let k = keys[0]; k <= keys[keys.length - 1]; k = shiftKey(k, 1)) {
-    if (pass(k)) { run = (prev && shiftKey(prev, 1) === k) ? run + 1 : 1; prev = k; best = Math.max(best, run); }
+    const r = pass(k);
+    if (r === 'skip') { if (prev) prev = k; continue; }   // holds the run, doesn't extend it
+    if (r) { run = (prev && shiftKey(prev, 1) === k) ? run + 1 : 1; prev = k; best = Math.max(best, run); }
     else { run = 0; prev = null; }
   }
   return best;
@@ -412,7 +422,6 @@ function viewToday() {
           <button class="btn sm" data-day="-1">←</button>
           <button class="btn sm" data-day="+1" ${k >= todayKey() ? 'disabled' : ''}>→</button>
           ${k !== todayKey() ? `<button class="btn sm ghost" data-day="today">Jump to today</button>` : ''}
-          ${closeHTML(k)}
         </div>
         ${typeRow}
         ${nudgeHTML(k)}
@@ -492,15 +501,6 @@ function ring(k) {
       <b id="ringVal" style="color:${scoreColor(s)}">${s == null ? '—' : s + '%'}</b><span>efficiency</span>
     </div></div>
   </div>`;
-}
-
-/* A day never used to end — you just stopped typing. This gives it a finish line. */
-function closeHTML(k) {
-  if (!isClosed(k)) return `<button class="btn primary sm" data-close="${k}">Close the day</button>`;
-  const at = new Date(entry(k).closedAt);
-  const time = isNaN(at) ? '' : at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return `<span class="pill closed" title="Closed${time ? ' at ' + time : ''}">✓ Closed</span>
-    <button class="btn sm ghost" data-reopen="${k}">Reopen</button>`;
 }
 
 function nudgeHTML(k) {
@@ -909,10 +909,28 @@ function viewTrends() {
   const delta = (a1 == null || a2 == null) ? null : Math.round(a2 - a1);
   const best = logged.length ? Math.max.apply(null, logged) : null;
 
+  // Only days this category was actually measured on — otherwise every Saturday that
+  // doesn't count deep work would drag the deep-work average down as if it were a zero.
   const perMetric = ms.map(m => {
-    const vals = days.map(k => { const e = entry(k); return e ? metricScore(m, e.values[m.id]) : null; }).filter(v => v != null);
-    return { m, avg: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null };
+    const vals = days.map(k => {
+      const e = entry(k);
+      return e && countedOn(k, m.id) ? metricScore(m, e.values[m.id]) : null;
+    }).filter(v => v != null);
+    return { m, avg: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null, days: vals.length };
   }).sort((x, y) => (y.avg ?? -1) - (x.avg ?? -1));
+
+  /* What the app couldn't say before: how the kinds of day actually compare. */
+  const byType = {};
+  days.forEach(k => {
+    const s = dayScore(k);
+    if (s == null) return;
+    const t = typeFor(k);
+    (byType[t.id] || (byType[t.id] = { t, vals: [] })).vals.push(s);
+  });
+  const typeRows = Object.keys(byType).map(id => {
+    const b = byType[id];
+    return { t: b.t, n: b.vals.length, avg: Math.round(b.vals.reduce((x, y) => x + y, 0) / b.vals.length) };
+  }).sort((x, y) => y.n - x.n);
 
   const ranges = [7, 30, 90, 365].map(r =>
     `<button class="btn sm ${ui.range === r ? 'primary' : ''}" data-range="${r}">${r === 365 ? '1y' : r + 'd'}</button>`).join(' ');
@@ -932,6 +950,21 @@ function viewTrends() {
     <div class="card-body">${lineChart(days, scores, ms)}</div>
   </div>
 
+  ${typeRows.length > 1 ? `
+  <div class="card">
+    <div class="card-head"><h2>By kind of day</h2><span class="sub">a day is only ever compared with what it was for</span></div>
+    <div class="card-body">
+      ${typeRows.map(x => `
+        <div class="row" style="padding:7px 0;font-size:13.5px">
+          <span class="dot" style="background:${x.t.color || 'var(--accent)'}"></span>
+          <span>${esc(x.t.icon || '◎')} ${esc(x.t.name)}</span>
+          <span class="sub">· ${x.n} day${x.n === 1 ? '' : 's'}</span>
+          <span class="spacer"></span>
+          <b style="font-variant-numeric:tabular-nums;color:${scoreColor(x.avg)}">${x.avg}%</b>
+        </div>`).join('')}
+    </div>
+  </div>` : ''}
+
   <div class="card">
     <div class="card-head"><h2>By category</h2><span class="sub">average over ${ui.range === 365 ? 'the year' : 'the last ' + ui.range + ' days'}</span></div>
     <div class="card-body">
@@ -941,6 +974,7 @@ function viewTrends() {
             <span class="dot" style="background:${x.m.color}"></span>
             <span>${esc(x.m.icon || '')} ${esc(x.m.name)}</span>
             <span class="spacer"></span>
+            <span class="sub">${x.days} day${x.days === 1 ? '' : 's'}</span>
             <b style="font-variant-numeric:tabular-nums">${x.avg == null ? '—' : x.avg + '%'}</b>
           </div>
           <div class="bar" style="height:7px"><i style="width:${x.avg || 0}%;background:${x.m.color}"></i></div>
@@ -1065,9 +1099,13 @@ function viewCalendar() {
     } else {
       const s = dayScore(k);
       const lvl = s == null ? '' : s >= 90 ? 4 : s >= 75 ? 3 : s >= 55 ? 2 : s >= 30 ? 1 : 0;
-      const cls = (k === todayKey() ? 'today ' : '') + (isClosed(k) ? 'closed' : '');
-      cells += `<i data-lvl="${lvl}" class="${cls.trim()}" data-jump="${k}"
-        title="${prettyDate(k)} — ${s == null ? 'not logged' : s + '%'}${isClosed(k) ? ' · closed' : ''}"></i>`;
+      // A logged day carries a dot in its kind-of-day colour, so a run of Saturdays or
+      // days out reads at a glance instead of looking like a slump.
+      const t = isLogged(k) ? typeFor(k) : null;
+      const tint = t && t.color && t.id !== 'standard' ? t.color : '';
+      cells += `<i data-lvl="${lvl}" class="${k === todayKey() ? 'today' : ''}" data-jump="${k}"
+        ${tint ? `style="--tint:${tint}" data-tint="1"` : ''}
+        title="${prettyDate(k)} — ${s == null ? 'not logged' : s + '%'}${t && t.id !== 'standard' ? ' · ' + esc(t.name) : ''}"></i>`;
     }
     if (d.getDay() === 0) {
       if (d.getMonth() !== lastMonth) {
@@ -1084,10 +1122,8 @@ function viewCalendar() {
 
   const loggedNow = streak(isLogged);
   const goodNow = streak(k => (dayScore(k) ?? -1) >= p.goal);
-  const closedNow = streak(isClosed);
   const loggedBest = bestStreak(isLogged);
   const goodBest = bestStreak(k => (dayScore(k) ?? -1) >= p.goal);
-  const closedBest = bestStreak(isClosed);
 
   const perMetric = metrics().map(m => {
     const cur = metricStreak(m);
@@ -1102,13 +1138,11 @@ function viewCalendar() {
 
   return `
   <div class="card">
-    <div class="stats cols-3">
+    <div class="stats cols-2">
       <div class="stat"><b style="color:var(--warn)">${loggedNow}d</b><span>current logging streak</span></div>
       <div class="stat"><b style="color:var(--good)">${goodNow}d</b><span>current ${p.goal}%+ streak</span></div>
-      <div class="stat"><b style="color:var(--accent)">${closedNow}d</b><span>current closed streak</span></div>
       <div class="stat"><b>${loggedBest}d</b><span>longest logging streak</span></div>
       <div class="stat"><b>${goodBest}d</b><span>longest ${p.goal}%+ streak</span></div>
-      <div class="stat"><b>${closedBest}d</b><span>longest closed streak</span></div>
     </div>
   </div>
 
@@ -1302,7 +1336,7 @@ function metricEditor(m, i) {
 /* ============================ events ============================ */
 
 function onClick(ev) {
-  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick]');
+  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1380,27 +1414,6 @@ function onClick(ev) {
     dayTypes().push(t);
     setDayType(ui.date, t.id);
     save(); toast(`Saved “${name}”`);
-    return render();
-  }
-
-  if (d.close) {
-    const e = ensureEntry(d.close);
-    e.closedAt = new Date().toISOString();
-    save(); render();
-    const card = $('.day-head');
-    if (card) { card.classList.add('just-closed'); setTimeout(() => card.classList.remove('just-closed'), 1200); }
-    const s = dayScore(d.close);
-    toast(`Day closed${s == null ? '' : ' — ' + s + '%'}`);
-    // The one moment the app asks for something back: a line about the day.
-    if (!noteOf(d.close).trim()) {
-      const note = $('#note');
-      if (note) { note.scrollIntoView({ block: 'center', behavior: 'smooth' }); note.focus(); }
-    }
-    return;
-  }
-  if (d.reopen) {
-    const e = entry(d.reopen);
-    if (e) { delete e.closedAt; save(); }
     return render();
   }
 
@@ -1590,10 +1603,12 @@ function exportCSV() {
   const p = profile();
   const ms = p.metrics;
   const keys = Object.keys(p.entries).sort();
-  const head = ['date', 'efficiency', ...ms.map(m => m.name), 'note'];
+  const head = ['date', 'kind of day', 'efficiency', ...ms.map(m => m.name), 'note'];
   const rows = keys.map(k => {
     const e = p.entries[k];
-    return [k, dayScore(k) ?? '', ...ms.map(m => {
+    return [k, isLogged(k) ? typeFor(k).name : '', dayScore(k) ?? '', ...ms.map(m => {
+      // Blank means the day never counted this category; 0 means it did and you scored 0.
+      if (!countedOn(k, m.id)) return '';
       const v = e.values[m.id];
       if (m.type === 'bool') return v ? 1 : 0;
       return v === undefined || v === null ? '' : v;

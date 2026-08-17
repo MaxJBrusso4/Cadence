@@ -1,7 +1,7 @@
 # Cadence — build plan
 
-**Status: all four stages built and passing (90 smoke tests).** What follows is the plan
-they were built from; it doubles as the record of what the app now does.
+**Status: six stages built and passing (146 smoke tests).** What follows is the plan they
+were built from; it doubles as the record of what the app now does.
 
 Four pieces of work, in order. Nothing here needs a build step, a server, or a data
 migration — every change is additive to the existing `cadence.v1` localStorage shape.
@@ -114,7 +114,8 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146.
+→ 81 → 90 → 112 → 118 → 132 → 146. Stage 6 removed nine tests with the closing feature and added nine of its own,
+so the total holds at 146 while the coverage moved.
 
 ## Stage 5 — Tasks (built 2026-08-12)
 
@@ -137,7 +138,7 @@ which is exactly the judgement the feature exists to avoid.
 task or writing a note used to create one, which scored the day 0% and dragged the
 averages down. `isLogged()` now requires at least one recorded value.
 
-## Stage 6 — Day types (planned 2026-08-13)
+## Stage 6 — Day types (built 2026-08-13 → 16)
 
 Not every day is the same kind of day. A Saturday, a family event, a day of golf — the
 current app scores all of them against one weekday definition and reports failure. The fix
@@ -238,16 +239,30 @@ Built 2026-08-16. Three rules the editor enforces:
 Day-type rows use `.trow`, not `.mrow` — the category tests count `.mrow` and would
 otherwise have counted kinds of day as categories.
 
-### Step 4 — Make it visible in the history
+### Step 4 — Make it visible in the history ✅
 
-Calendar cells carry the type's colour. Trends splits averages by type — *weekdays 82 ·
-Saturdays 71 · out-days 94* — which is the first thing the app can say that it structurally
-could not before. Three lines of text, not more series on the chart, which already carries
-range chips, a delta, per-category averages and legend overlays.
+Built 2026-08-16.
 
-This is also the accountability mechanism. Off-days are never rationed or locked; they are
-simply counted in the same view as the score, which is enough when you are the only
-audience.
+**Calendar.** Every logged day carries a corner dot in its kind-of-day colour — the slot the
+closed-day ring used to hold. Standard days stay plain, so the tint means "this day was
+something else" rather than decorating everything. The streak grid drops from six numbers to
+four, current and longest for logged and goal days.
+
+**Trends.** A *By kind of day* card — `weekdays 82 · Saturdays 71 · out-days 94`, with the
+number of days each average rests on. Three lines of text rather than more series on a chart
+that already carries range chips, a delta, per-category averages and legend overlays. It
+only appears once there is more than one kind of day in the window.
+
+Two corrections that came with it, both from the issues list:
+
+- **Per-category averages now skip days the category wasn't counted on.** Otherwise every
+  Saturday that doesn't count deep work would drag the deep-work average down as though it
+  were a zero. Each row says how many days it covers, so a small sample is visible rather
+  than implied.
+- **Category streaks hold across days they weren't measured on.** `streak()` and
+  `bestStreak()` understand a third answer, `'skip'`, which holds a run without extending
+  it. A Saturday that doesn't count deep work no longer breaks a deep-work streak — you
+  can't fail at something you weren't measured on.
 
 ### Removed in the same stage: closing the day
 
@@ -258,14 +273,14 @@ mean "this date is in the past", which the calendar already knows, and on a stat
 no background process it would really mean "retroactively stamp days on next open" — a
 mutation on launch, the pattern tasks deliberately avoid.
 
-Going: `isClosed()`, `closeHTML()`, the `data-close` / `data-reopen` handlers, the heatmap
-ring, and the two closed-day streak stats — the Calendar drops from six numbers to four.
-`closedAt` stays *readable* so old backups import untouched; it is simply never written or
-shown again. The writing nudge it used to trigger is not lost: the rotating prompt already
-renders above an empty note box on every visit to the Day tab.
+Done 2026-08-16. Gone: `isClosed()`, `closeHTML()`, the `data-close` / `data-reopen`
+handlers, the heatmap ring, the settle/lightup animations, and the two closed-day streak
+stats. `closedAt` stays *readable* so old backups import untouched; it is simply never
+written or shown again. The writing nudge it used to trigger is not lost: the rotating
+prompt already renders above an empty note box on every visit to the Day tab.
 
-The heatmap cell spends its one decoration slot on the closed-day ring. Stage 6 needs that
-slot for day-type colour.
+The heatmap cell spent its one decoration slot on the closed-day ring. Step 4 needed that
+slot for day-type colour, and now has it.
 
 ## Known, not yet fixed
 
@@ -274,6 +289,13 @@ slot for day-type colour.
   so they are left as they are.
 - The Trends chart at the 1y range still plots months that predate the profile — the same
   complaint the calendar had before it started at `profileStart()`.
+- Archiving every category a type counts leaves that type with nothing, and it quietly
+  falls back to counting all of them. Rare, and better than scoring nothing, but it happens
+  without saying so.
+- Averages mix kinds of day: a 94% out-day and an 82% weekday sit in the same 30-day
+  average, and light days are easier to clear the goal threshold with. The *By kind of day*
+  card is the honest counterweight rather than a fix. Deliberate — weighting days by type
+  gets complicated fast — but worth revisiting after a few months of real use.
 
 ## Ideas not taken up
 

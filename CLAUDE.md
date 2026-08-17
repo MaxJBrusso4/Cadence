@@ -57,9 +57,10 @@ rating 1–10.
 - **`isLogged(k)` requires at least one recorded value.** An entry object alone is not a
   logged day — writing a note or adding a task must not score the day 0% and drag averages
   down. This was a real bug; don't reintroduce it.
-- **Closing a day is a marker, not a lock.** `dayScore()` ignores `closedAt` entirely. A
-  closed day stays editable and keeps its stamp when edited; reopening is always allowed
-  and only ever via an explicit button, never a side effect.
+- **Closing a day was removed** in stage 6. `closedAt` is still read from old backups so
+  they import untouched, but nothing writes or shows it. Don't rebuild it: automating it at
+  midnight would make it mean "this date is in the past", and by hand it earned a button, a
+  stamp and two of six streak stats for very little. See PLAN.md.
 - **Tasks are unscored and never move.** They live on the day they were written; carry-over
   of unfinished tasks is computed at render time in `tasksOn(k)`, so nothing mutates at
   midnight. Deliberately excluded from `dayScore()` — a progress ring was built and removed

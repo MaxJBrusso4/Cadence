@@ -130,24 +130,6 @@ click(q('[data-day="today"]'));
 ok('jump to today', q('.day-meta h1').textContent==='Today');
 ok('note survived navigation', q('#note').value==='hello', JSON.stringify(q('#note').value));
 
-// --- close the day: a ritual and a stat, never a lock
-const scoreBeforeClose=score();
-ok('an open day offers a finish line', !!q('[data-close]'));
-click(q('[data-close]'));
-ok('closing marks the day', !!q('.pill.closed') && !!q('[data-reopen]'));
-ok('closing is persisted', localStorage.getItem('cadence.v1').includes('closedAt'));
-ok('closing leaves the score alone', score()===scoreBeforeClose, scoreBeforeClose+' -> '+score());
-ok('a closed day is still editable', !q('.metric input[disabled]') && !q('.toggle[disabled]'));
-click(q('[data-reopen]'));
-ok('reopening clears the stamp', !!q('[data-close]') && !q('.pill.closed'));
-ok('reopening is persisted', !localStorage.getItem('cadence.v1').includes('closedAt'));
-// closing a day with nothing written asks for a line
-click(q('[data-day="-1"]'));
-click(q('[data-close]'));
-ok('closing an unwritten day puts the caret in the journal box', document.activeElement===q('#note'));
-click(q('[data-day="today"]')); click(q('[data-close]'));
-ok('two days closed', qq('[data-reopen]').length===1);
-
 // --- views render
 tab('trends');
 ok('trends renders chart', !!q('svg.chart') && q('#view').textContent.includes('average efficiency'));
@@ -189,9 +171,8 @@ ok('no cell predates the first logged day', (()=>{
 })(), qq('.heat i[data-jump]').map(c=>c.dataset.jump).join(','));
 ok('padding cells hold the grid without being clickable', qq('.heat i.pre').every(c=>!c.dataset.jump));
 ok('logging streak counted', q('#view').textContent.includes('1d'));
-ok('calendar counts closed streaks', q('#view').textContent.includes('current closed streak')
-   && q('#view').textContent.includes('longest closed streak'));
-ok('closed days are marked on the heatmap', qq('.heat i.closed').length===2, 'marked='+qq('.heat i.closed').length);
+ok('the calendar shows four streak numbers, not six', qq('.stat').length===4, qq('.stat').length);
+ok('closing the day is gone', !q('#view').textContent.includes('closed streak'));
 ok('heatmap cells look clickable', getComputedStyle(q('.heat i[data-jump]')).cursor==='pointer', getComputedStyle(q('.heat i[data-jump]')).cursor);
 click(qq('.heat i').find(c=>c.classList.contains('today')));
 ok('clicking a heatmap cell opens that day', !!q('.day-head'));
@@ -490,6 +471,35 @@ click(qq('[data-tedit]')[1]); click(q('[data-tdel]'));
 ok('a type can be deleted', qq('.trow').length===before2-1, before2+' -> '+qq('.trow').length);
 tab('today');
 ok('a deleted type leaves the day’s score alone', score()===keptScore, keptScore+' -> '+score());
+
+// --- step 4: the kinds of day show up in the history
+// give today a type of its own so there are two kinds in the window
+tab('today');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+window.prompt=()=>'Golf';
+click(qq('.m-off')[0]); click(q('[data-savetype]'));
+ok('today is a kind of its own', q('.tchip.on').textContent.includes('Golf'));
+
+tab('calendar');
+ok('a logged day wears its kind of day', qq('.heat i[data-tint]').length>=1,
+   'tinted='+qq('.heat i[data-tint]').length);
+ok('the tint is the type’s colour, not the score', /--tint:\s*#/.test(q('.heat i[data-tint]').getAttribute('style')),
+   q('.heat i[data-tint]').getAttribute('style'));
+ok('Standard days are left plain', qq('.heat i[data-jump]').length>qq('.heat i[data-tint]').length,
+   qq('.heat i[data-jump]').length+' cells, '+qq('.heat i[data-tint]').length+' tinted');
+
+tab('trends');
+ok('trends breaks the average down by kind of day', q('#view').textContent.includes('By kind of day'));
+ok('and names them', q('#view').textContent.includes('Golf'), q('#view').textContent.slice(0,120));
+ok('each kind says how many days it rests on', /\d+ days?/.test(q('#view').textContent));
+
+// a category isn't averaged over days it wasn't counted on
+const catCard=qq('.card').find(c=>c.querySelector('h2') && c.querySelector('h2').textContent==='By category');
+const covers=[...catCard.querySelectorAll('.card-body .sub')].map(s=>parseInt(s.textContent,10));
+ok('per-category averages say how many days they cover', covers.length>1 && covers.every(n=>!isNaN(n)),
+   covers.join('/'));
+ok('a category dropped from a day isn’t averaged over it',
+   Math.min(...covers) < Math.max(...covers), covers.join('/'));
 
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data

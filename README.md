@@ -41,14 +41,10 @@ Once you *have* recorded something, blank numeric fields count as zero — you d
 For "at most" targets (screen time, spending), you score 100% up to the cap and slide
 linearly to 0% at double it.
 
-**Streaks** come in three flavours: days logged in a row, days at or above your "good day"
-threshold in a row (set it in Settings), and days *closed* in a row. Categories track their
-own streaks of consecutive 100% days.
-
-**Closing a day** is the end-of-day ritual: press **Close the day** on the Day tab and the score
-is stamped, the ring gives one pulse, and if you haven't written anything the caret lands
-in the journal box. It is a marker and a stat, never a lock — scoring ignores it entirely,
-a closed day stays fully editable, and you can reopen any day at any time.
+**Streaks** come in two flavours: days logged in a row, and days at or above your "good day"
+threshold in a row (set it in Settings). Categories track their own streaks of consecutive
+100% days — and a day that didn't count a category holds its streak rather than breaking
+it, since you can't fail at something you weren't measured on.
 
 ## The views
 
@@ -69,13 +65,16 @@ Left to right: the two tabs you touch daily, then the three for looking back, th
   next day**, wearing the age it has earned (`4d`) so you can see what's going stale.
   Tasks are deliberately kept *out* of the score: they're one-off things, not habits, and
   counting them would make the daily percentage mean less rather than more.
-- **Trends** — 7/30/90/365-day efficiency line, first-half vs second-half delta, per-category
-  averages. Click a legend name to overlay that category on the chart. Hovering the chart
+- **Trends** — 7/30/90/365-day efficiency line, first-half vs second-half delta, **averages
+  by kind of day** (*weekdays 82 · Saturdays 71 · out-days 94*), and per-category averages
+  counted only over the days that category was actually measured on. Click a legend name to overlay that category on the chart. Hovering the chart
   brings up a crosshair and reads out that day, including any overlaid categories.
 - **Calendar** — a heatmap that begins the day the profile did and grows forward from
   there, so it never offers you days that predate the app (it stops widening at 12
-  months). Click any day to open it. Plus six streak stats: current and longest for days
-  logged, days above your threshold, and days closed. Closed days carry a faint ring.
+  months). Click any day to open it. Each logged day carries a corner dot in the colour of
+  the kind of day it was, so a run of Saturdays reads as Saturdays rather than as a slump.
+  Plus four streak stats: current and longest, for days logged and days above your
+  threshold.
 - **Journal** — one entry per day, the same text the Day view writes. Search everything
   you've written, filter by the kind of day it was (great / middling / rough / unscored),
   star the ones worth keeping. Write for any date, whenever you like — pick it with
