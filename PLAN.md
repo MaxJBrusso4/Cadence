@@ -114,8 +114,9 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169. Stage 6 removed nine tests with the closing feature and added nine of its own,
-so the total holds at 146 while the coverage moved.
+→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169. Stage 6 also removed nine tests along
+with the closing feature and added nine of its own, so one of those steps held the total
+steady while the coverage moved.
 
 ## Stage 5 — Tasks (built 2026-08-12)
 
