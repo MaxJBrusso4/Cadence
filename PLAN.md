@@ -322,6 +322,30 @@ prompt already renders above an empty note box on every visit to the Day tab.
 The heatmap cell spent its one decoration slot on the closed-day ring. Step 4 needed that
 slot for day-type colour, and now has it.
 
+## Next — sharing it with people who didn't build it (planned 2026-08-16)
+
+The intent is a public link, hosted on GitHub Pages, for family to use and give outside
+feedback on. Free Pages needs the repo public; nothing in it is sensitive and no data ever
+leaves the visitor's browser.
+
+**Profiles are not what makes this work.** Each visitor's browser has its own
+`localStorage`, so everyone gets their own history automatically. Profile switching only
+earns its keep on a shared computer. Kept as-is — it works and removing it would touch the
+menu, isolation, wipe and import/export for no visible gain — but don't grow it on the
+theory that other users need it.
+
+In the order it should be done:
+
+1. **A pass on a phone.** The responsive CSS dates from stage 4 and predates day types — the
+   type chips, the tick grid and the not-counted strip have never been seen under 400px.
+2. **Say where the data lives.** A first-run line, and a nudge toward Export JSON. Someone
+   will otherwise log three weeks, clear their browser, and lose it without ever having
+   known that was possible. This matters more than any feature right now.
+3. **Mark the starter categories as examples**, or a new user will read them as the app
+   telling them what to value.
+4. **Decide how feedback gets back.** Nothing phones home, by design, so it is a text
+   message or nothing.
+
 ## Known, not yet fixed
 
 - Days logged before stage 6 carry no snapshot and still fall back to live scoring, so
