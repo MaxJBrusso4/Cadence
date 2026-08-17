@@ -10,7 +10,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 | `index.html` | page shell: topbar, six tabs, `<main id="view">`, toast, hidden file input |
 | `app.js` | everything — state, scoring, all six views, events (~1500 lines, one IIFE) |
 | `styles.css` | all styling, light + dark via CSS custom properties |
-| `smoke-test.html` | 169 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
+| `smoke-test.html` | 175 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
 | `manifest.webmanifest`, `icon-*.png`, `make-icons.py` | Add to Home Screen; icons are drawn by the script, run by hand |
 | `README.md` | user-facing docs — what the app does |
 | `PLAN.md` | build record: what's shipped, what's known-broken, ideas not taken up |
@@ -19,7 +19,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 
 - **Verify by opening `smoke-test.html` in a browser** and confirming the count and that
   nothing failed. There is no CLI test runner. Add cases for new behaviour — the count has
-  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 across stages, so it goes in the commit.
+  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 → 175 across stages, so it goes in the commit.
 - **No build, no npm, no dependencies.** Plain DOM APIs and template-literal HTML. Keep it
   that way — the whole point is that the file opens from disk.
 - **Keep `README.md` and `PLAN.md` current** in the same commit as the change. PLAN.md
@@ -83,6 +83,9 @@ rating 1–10.
   "dropped on purpose" and never reaches the day in progress. A category with `forType`
   belongs to one kind of day and appears nowhere else, so `active: null` ("everything")
   means every *general* category and `poolFor(t)` is what a type may tick.
+- **Number fields are typed into, never clicked.** They carry `data-set` like every other
+  control, so `onClick` must return early for `kind === 'num'` — a `render()` there replaces
+  the input under the caret and closes the keyboard on a phone. This was a real bug.
 - **Escape before interpolating.** `esc()` on anything user-typed. In `excerpt()`, escape
   first and mark the search query inside the escaped text — never the reverse.
 - **Dates are `YYYY-MM-DD` local-time strings** via `dateKey()` / `parseKey()`. Never

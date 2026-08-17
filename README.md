@@ -19,6 +19,11 @@ Data is saved in the browser's `localStorage` under the key `cadence.v1`, which 
 - **clearing your browsing data erases it.** Use **Settings → Export JSON** every so often
   and keep the file somewhere safe; **Import JSON** puts everything back.
 
+**Settings tells you where you stand** — whether saving is working, how many days are
+recorded, when it last saved, and whether you're on the home screen yet. If a browser isn't
+keeping anything (Private Browsing, or the small browser that opens when you tap a link
+inside Messages or Instagram) it says so, rather than losing your days quietly.
+
 The app asks the browser to hold on to its storage, and adding it to your home screen helps
 too, but an exported backup is the only real safety net.
 
@@ -106,7 +111,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 169 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 175 interaction tests — open it in a browser and read the list at the bottom |
 | `manifest.webmanifest`, `icon-*.png` | home-screen icon and name |
 | `make-icons.py` | redraws the icons; run by hand, never needed to run the app |
 | `PLAN.md` | what's built and what's next |

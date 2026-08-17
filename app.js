@@ -36,6 +36,7 @@ function load() {
 }
 
 function save() {
+  db.lastSaved = Date.now();
   try { localStorage.setItem(KEY, JSON.stringify(db)); }
   catch (e) { toast('Could not save — storage may be full'); }
 }
@@ -117,6 +118,23 @@ function scoreColor(s) {
   if (s >= 80) return 'var(--good)';
   if (s >= 55) return 'var(--warn)';
   return 'var(--bad)';
+}
+
+/* Someone closed the tab and lost everything, so the app should be able to say whether
+   saving works instead of leaving people to find out the hard way. */
+let storageKept = null;                 // null until the browser answers
+function storageWorks() {
+  try {
+    const probe = 'cadence.probe';
+    localStorage.setItem(probe, '1');
+    const ok = localStorage.getItem(probe) === '1';
+    localStorage.removeItem(probe);
+    return ok;
+  } catch (e) { return false; }         // private browsing throws here
+}
+/* iOS home-screen apps report this; an ordinary tab does not. */
+function isInstalled() {
+  return !!(navigator.standalone || (matchMedia && matchMedia('(display-mode: standalone)').matches));
 }
 
 /* ============================ scoring ============================ */
@@ -1214,6 +1232,43 @@ function viewCalendar() {
 
 /* ============================ view: settings ============================ */
 
+/* Plain answers to "is my stuff actually being kept", for someone who has already been
+   burned once and won't trust a reassurance on its own. */
+function storagePanel() {
+  const works = storageWorks();
+  const p = profile();
+  const days = Object.keys(p.entries).filter(isLogged).length;
+  const when = db.lastSaved ? new Date(db.lastSaved) : null;
+  const saved = when && !isNaN(when)
+    ? when.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : 'not yet';
+
+  if (!works) return `<div class="warn-card">
+    <b>This browser isn't saving anything.</b>
+    <p>Nothing you enter here will survive closing the tab. That happens in Private
+    Browsing, and in the small browser that opens when you tap a link inside another app
+    like Messages or Instagram.</p>
+    <p><b>Open the link in Safari or Chrome directly</b> — then add it to your home screen,
+    and it will keep your days properly.</p>
+  </div>`;
+
+  return `<div class="storage-check">
+    <div class="row"><span class="dot" style="background:var(--good)"></span>
+      <b>Saving works.</b><span class="sub">${days} day${days === 1 ? '' : 's'} recorded · last saved ${esc(saved)}</span></div>
+    ${isInstalled()
+      ? `<div class="row"><span class="dot" style="background:var(--good)"></span>
+         <span class="sub">Added to your home screen — the safest way to keep it.</span></div>`
+      : `<div class="row"><span class="dot" style="background:var(--warn)"></span>
+         <span class="sub"><b>Not on your home screen yet.</b> On iPhone: Share → Add to Home
+         Screen. It opens like an app, and your days are far less likely to be cleared away
+         — Safari clears storage for sites left unopened for about a week.</span></div>`}
+    ${storageKept === false
+      ? `<div class="row"><span class="dot" style="background:var(--warn)"></span>
+         <span class="sub">This browser won't promise to keep the data if it runs short of
+         space, so keep an exported backup.</span></div>` : ''}
+  </div>`;
+}
+
 function viewSettings() {
   const p = profile();
   const list = p.metrics.map((m, i) => {
@@ -1274,7 +1329,8 @@ function viewSettings() {
   <div class="card">
     <div class="card-head"><h2>Data</h2><span class="sub">stored only in this browser</span></div>
     <div class="card-body">
-      <p class="sub" style="margin:0 0 14px">Your days live in this browser on this device.
+      ${storagePanel()}
+      <p class="sub" style="margin:14px 0">Your days live in this browser on this device.
       Clearing your browsing data erases them, and they don't follow you to another phone or
       computer. <b>Export JSON is your only backup</b> — keep the file somewhere safe, and
       Import JSON brings everything back.</p>
@@ -1515,6 +1571,9 @@ function onClick(ev) {
   if (d.jband)    { ui.journalBand = d.jband; return renderJournalList(); }
   if (d.jstarred) { ui.journalStarred = !ui.journalStarred; return render(); }
   if (d.set) {
+    // Number fields carry data-set too, but they're typed into, not clicked — and a
+    // render() here would replace the field under the caret and shut the keyboard.
+    if (d.kind === 'num') return;
     const m = profile().metrics.find(x => x.id === d.set);
     const e = ensureEntry(ui.date);
     if (d.kind === 'bool') e.values[m.id] = !e.values[m.id];
@@ -1852,7 +1911,12 @@ render();
    Granted quietly on a site that gets used; treated as a hint elsewhere. Either way
    there is nothing to tell the user about, so it fails silently. */
 if (navigator.storage && navigator.storage.persist) {
-  try { navigator.storage.persist(); } catch (e) { /* nothing to do about it */ }
-}
+  try {
+    navigator.storage.persist().then(granted => {
+      storageKept = granted;
+      if (ui.view === 'settings') render();
+    }, () => { storageKept = false; });
+  } catch (e) { storageKept = false; }
+} else storageKept = false;
 
 })();

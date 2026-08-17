@@ -587,6 +587,27 @@ ok('a day in the future is never scored', (()=>{
   return !!e && !Object.keys(e.values||{}).length;
 })());
 
+// --- tapping a number field must not rebuild the view under the caret
+tab('today');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+const nf=q('input[data-kind="num"]');
+if (nf) {
+  nf.focus(); click(nf);
+  const still=q('input[data-kind="num"]');
+  ok('tapping a number field keeps the field', still===nf);
+  ok('and keeps the keyboard open', document.activeElement===still);
+  type(still,'5');
+  ok('and it still takes a value', document.activeElement===still && still.value==='5');
+} else ok('number field present to tap', false, 'no numeric category on this day');
+
+// --- the app can say whether saving actually works
+tab('settings');
+ok('settings reports that saving works', q('#view').textContent.includes('Saving works'),
+   q('.storage-check')?q('.storage-check').textContent.slice(0,60):'no storage panel');
+ok('and counts what has been recorded', /\d+ days? recorded/.test(q('#view').textContent));
+ok('and nudges toward the home screen when it is only a tab',
+   q('#view').textContent.includes('Add to Home'));
+
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';

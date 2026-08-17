@@ -1,6 +1,6 @@
 # Cadence — build plan
 
-**Status: six stages built and passing (169 smoke tests).** What follows is the plan they
+**Status: six stages built and passing (175 smoke tests).** What follows is the plan they
 were built from; it doubles as the record of what the app now does.
 
 Four pieces of work, in order. Nothing here needs a build step, a server, or a data
@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169. Stage 6 also removed nine tests along
+→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 → 175. Stage 6 also removed nine tests along
 with the closing feature and added nine of its own, so one of those steps held the total
 steady while the coverage moved.
 
@@ -358,7 +358,20 @@ theory that other users need it.
    `make-icons.py` from the ◎ mark — standard library only, run by hand, never needed to run
    the app.
 
-5. **Decide how feedback gets back.** Still open. Nothing phones home, by design, so it is a
+5. **First feedback from real use** ✅ (2026-08-17), and both were faults, not preferences:
+
+   - **Number fields could not be typed into on a phone.** The input carries `data-set`, so
+     tapping it matched the click handler's selector; the handler does nothing for a numeric
+     field but called `render()` anyway, which replaced the input under the caret and shut
+     the keyboard. A desktop mouse could fight it, a thumb could not. `onClick` now returns
+     early for `kind === 'num'` — those are typed into, never clicked.
+   - **Data appeared to vanish when the tab was closed.** Settings now answers the question
+     rather than reassuring: a check that writes and reads back, the number of days recorded,
+     when it last saved, whether the browser promised to keep it, and whether the app is on
+     the home screen. If storage is dead — Private Browsing, or the little browser that opens
+     when you tap a link inside Messages — it says so plainly and says what to do instead.
+
+6. **Decide how feedback gets back.** Still open. Nothing phones home, by design, so it is a
    text message or nothing.
 
 **Then:** turn on GitHub Pages (needs the repo public) and send the link. One thing to do
