@@ -3,3 +3,10 @@
 
 # Claude Code local settings — machine-specific, not shared
 .claude/settings.local.json
+
+# Scratch probe pages — throwaway harnesses, never part of the app
+_*.html
+
+# Exported backups contain real logged data — never commit one
+cadence-*.json
+*-backup.json
