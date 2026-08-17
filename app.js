@@ -395,7 +395,7 @@ function viewToday() {
   const adjusted = !!(e && e.off && e.off.length);
   const typeRow = `<div class="types">
     ${dayTypes().map(t => `<button class="tchip ${t.id === cur.id ? 'on' : ''}" data-settype="${t.id}"
-      >${esc(t.icon || '◎')} ${esc(t.name)}</button>`).join('')}
+      ><span style="color:${t.color || 'inherit'}">${esc(t.icon || '◎')}</span> ${esc(t.name)}</button>`).join('')}
     <button class="tchip ghost" data-savetype="1"
       title="Save the categories showing today as a new kind of day">+ Save as type</button>
     ${adjusted ? '<span class="sub">adjusted for this day</span>' : ''}
@@ -1159,6 +1159,15 @@ function viewSettings() {
     </div>`;
   }).join('');
 
+  const types = dayTypes().map(t => ui.editingType === t.id ? typeEditor(t) : `<div class="trow">
+      <div class="m-icon" style="color:${t.color || 'var(--accent)'}">${esc(t.icon || '◎')}</div>
+      <div class="m-main">
+        <div class="m-name">${esc(t.name)}</div>
+        <div class="m-sub">${typeSummary(t)}</div>
+      </div>
+      <button class="btn sm" data-tedit="${t.id}">Edit</button>
+    </div>`).join('');
+
   return `
   <div class="card">
     <div class="card-head">
@@ -1166,6 +1175,14 @@ function viewSettings() {
       <button class="btn primary sm" data-add="1">+ Add category</button>
     </div>
     ${list || '<div class="empty">Nothing tracked yet — add what makes a good day for you.</div>'}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Kinds of day</h2>
+      <span class="sub">picked by hand on the Day tab, never assigned for you</span>
+    </div>
+    ${types}
   </div>
 
   <div class="card">
@@ -1190,6 +1207,51 @@ function viewSettings() {
       <button class="btn" data-import="1">Import JSON…</button>
       <span class="spacer"></span>
       <button class="btn danger" data-wipe="1">Delete this profile</button>
+    </div>
+  </div>`;
+}
+
+/* "Everything" rather than a list, when a type counts the lot — said plainly, and it is
+   also how the type keeps picking up categories added later. */
+function typeSummary(t) {
+  if (!t.active) return 'counts every category';
+  const names = metrics().filter(m => t.active.indexOf(m.id) >= 0).map(m => m.name);
+  if (!names.length) return 'counts nothing yet';
+  return 'counts ' + names.join(', ');
+}
+
+/* A type is a name, an icon, a colour and a set of tick boxes. No targets, no weights —
+   those live on the category, once, and a type never overrides them. */
+function typeEditor(t) {
+  const ms = metrics();
+  const isOn = m => !t.active || t.active.indexOf(m.id) >= 0;
+  const onCount = ms.filter(isOn).length;
+  return `<div class="trow editing" style="align-items:flex-start">
+    <div class="m-main">
+      <div class="editor">
+        <label class="field" style="grid-column:span 2"><span>Name</span>
+          <input class="input" data-tf="name" value="${esc(t.name)}" placeholder="e.g. Saturday"></label>
+        <label class="field"><span>Icon</span>
+          <input class="input" data-tf="icon" value="${esc(t.icon || '◎')}" maxlength="2"></label>
+
+        <label class="field full"><span>Colour</span>
+          <div class="swatches">${PALETTE.map(c =>
+            `<button data-tcolor="${c}" class="${t.color === c ? 'on' : ''}" style="background:${c}"></button>`).join('')}</div></label>
+
+        <div class="field full"><span>Counts these categories${onCount === ms.length ? ' — all of them, so new ones join automatically' : ''}</span>
+          <div class="ticks">${ms.map(m => `<button class="tchip ${isOn(m) ? 'on' : ''}" data-ttick="${m.id}">
+            <span style="color:${m.color}">${esc(m.icon || '•')}</span> ${esc(m.name)}</button>`).join('')}</div>
+        </div>
+
+        <div class="full row">
+          <button class="btn primary sm" data-tdone="1">Done</button>
+          <span class="sub">Editing a kind of day changes days from here on, never the ones already logged.</span>
+          <span class="spacer"></span>
+          ${t.id === 'standard'
+            ? '<span class="sub">Standard can’t be deleted</span>'
+            : `<button class="btn danger sm" data-tdel="${t.id}">Delete</button>`}
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -1240,7 +1302,7 @@ function metricEditor(m, i) {
 /* ============================ events ============================ */
 
 function onClick(ev) {
-  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm]');
+  const t = ev.target.closest('[data-day],[data-set],[data-range],[data-toggle-series],[data-jump],[data-go],[data-add],[data-edit],[data-move],[data-done],[data-del],[data-archive],[data-color],[data-avatar],[data-export],[data-import],[data-wipe],[data-jopen],[data-jback],[data-jstar],[data-jband],[data-jstarred],[data-jday],[data-jtoday],[data-focus],[data-close],[data-reopen],[data-task],[data-taskdel],[data-taskadd],[data-gotasks],[data-settype],[data-savetype],[data-dropm],[data-addm],[data-tedit],[data-tdone],[data-tdel],[data-tcolor],[data-ttick]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1280,12 +1342,41 @@ function onClick(ev) {
     save(); return render();
   }
   if (d.addm) { setMetricOnDay(ui.date, d.addm, true); save(); return render(); }
+  if (d.tedit) { ui.editingType = d.tedit; return render(); }
+  if (d.tdone) { ui.editingType = null; save(); return render(); }
+  if (d.tcolor) {
+    const t = typeById(ui.editingType);
+    if (t) { t.color = d.tcolor; resnapshotToday(); save(); render(); }
+    return;
+  }
+  if (d.ttick) {
+    const t = typeById(ui.editingType);
+    if (!t) return;
+    const ms = metrics();
+    const list = t.active ? ms.filter(m => t.active.indexOf(m.id) >= 0).map(m => m.id) : ms.map(m => m.id);
+    const at = list.indexOf(d.ttick);
+    if (at >= 0) {
+      if (list.length <= 1) { toast('A day has to count something'); return; }
+      list.splice(at, 1);
+    } else list.push(d.ttick);
+    // All of them means "all of them" — kept as null so categories added later join in.
+    t.active = list.length === ms.length ? null : list;
+    resnapshotToday(); save(); return render();
+  }
+  if (d.tdel) {
+    const t = typeById(d.tdel);
+    if (!t) return;
+    if (!confirm(`Delete the "${t.name}" kind of day? Days already logged keep the score they were given.`)) return;
+    const p = profile();
+    p.dayTypes = dayTypes().filter(x => x.id !== d.tdel);
+    ui.editingType = null; save(); toast('Kind of day deleted'); return render();
+  }
   if (d.savetype) {
     const name = (prompt('What kind of day is this?') || '').trim();
     if (!name) return;
     const ids = dayActive(ui.date).map(m => m.id);
     if (!ids.length) { toast('A day has to count something'); return; }
-    const t = { id: uid(), name, icon: '◎', weekdays: [], active: ids };
+    const t = { id: uid(), name, icon: '◎', color: PALETTE[dayTypes().length % PALETTE.length], weekdays: [], active: ids };
     dayTypes().push(t);
     setDayType(ui.date, t.id);
     save(); toast(`Saved “${name}”`);
@@ -1405,6 +1496,11 @@ function onChange(ev) {
     if (f === 'target' || f === 'weight') resnapshotToday();
     save();
     if (f === 'type' || f === 'goal' || f === 'weight') render();   // editor layout depends on these
+    return;
+  }
+  if (el.dataset.tf && ui.editingType) {
+    const t = typeById(ui.editingType);
+    if (t) { t[el.dataset.tf] = el.value || (el.dataset.tf === 'icon' ? '◎' : 'Unnamed'); resnapshotToday(); save(); render(); }
     return;
   }
   if (el.id === 'jDate' && el.value) { ui.journalOpen = el.value; render(); focusNote(); }
@@ -1580,7 +1676,7 @@ document.addEventListener('keydown', ev => {
 
 db = load();
 ui = {
-  view: 'today', date: todayKey(), range: 30, editing: null, shown: {},
+  view: 'today', date: todayKey(), range: 30, editing: null, editingType: null, shown: {},
   journalOpen: null, journalQuery: '', journalBand: 'all', journalStarred: false
 };
 

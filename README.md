@@ -81,7 +81,7 @@ Left to right: the two tabs you touch daily, then the three for looking back, th
   star the ones worth keeping. Write for any date, whenever you like — pick it with
   **Any day**, or arrow between days with `←` / `→`. `Esc` returns to the list. That day's
   tasks show beside the entry.
-- **Settings** — add, edit, reorder, archive, or delete categories; profile name, avatar, and goal threshold; JSON backup, CSV export, JSON import.
+- **Settings** — add, edit, reorder, archive, or delete categories; rename, recolour and re-tick your kinds of day; profile name, avatar, and goal threshold; JSON backup, CSV export, JSON import.
 
 Archiving a category hides it from daily entry and scoring but keeps its history.
 Deleting removes its values from every day, permanently.
@@ -93,7 +93,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 132 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 146 interaction tests — open it in a browser and read the list at the bottom |
 | `PLAN.md` | what's built and what's next |
 
 `app.js` is plain ES5-compatible-ish JavaScript in one IIFE, no dependencies. The scoring

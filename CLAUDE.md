@@ -10,7 +10,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 | `index.html` | page shell: topbar, six tabs, `<main id="view">`, toast, hidden file input |
 | `app.js` | everything — state, scoring, all six views, events (~1500 lines, one IIFE) |
 | `styles.css` | all styling, light + dark via CSS custom properties |
-| `smoke-test.html` | 132 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
+| `smoke-test.html` | 146 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
 | `README.md` | user-facing docs — what the app does |
 | `PLAN.md` | build record: what's shipped, what's known-broken, ideas not taken up |
 
@@ -18,7 +18,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 
 - **Verify by opening `smoke-test.html` in a browser** and confirming the count and that
   nothing failed. There is no CLI test runner. Add cases for new behaviour — the count has
-  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 across stages, so it goes in the commit.
+  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 across stages, so it goes in the commit.
 - **No build, no npm, no dependencies.** Plain DOM APIs and template-literal HTML. Keep it
   that way — the whole point is that the file opens from disk.
 - **Keep `README.md` and `PLAN.md` current** in the same commit as the change. PLAN.md

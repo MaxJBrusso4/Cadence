@@ -440,6 +440,57 @@ click(qq('.m-off')[0]);
 ok('the last category can’t be dropped', qq('.metric').length===1, qq('.metric').length);
 ok('so the day still scores', score()!=='—', score());
 
+// --- the types editor in Settings
+tab('settings');
+ok('settings lists the kinds of day', qq('.trow').length>=2, qq('.trow').length);
+ok('Standard says it counts everything', q('.trow .m-sub').textContent.includes('every category'),
+   q('.trow .m-sub').textContent);
+
+click(qq('[data-tedit]')[0]);                       // Standard
+ok('the editor opens on the type', !!q('[data-tf="name"]') && !!q('.ticks'));
+ok('Standard can’t be deleted', !q('[data-tdel]'));
+ok('every category starts ticked', qq('.ticks .tchip.on').length===qq('.ticks .tchip').length,
+   qq('.ticks .tchip.on').length+'/'+qq('.ticks .tchip').length);
+
+const allTicks=qq('.ticks .tchip').length;
+click(qq('.ticks .tchip')[0]);
+ok('a category can be un-ticked', qq('.ticks .tchip.on').length===allTicks-1,
+   qq('.ticks .tchip.on').length+'/'+allTicks);
+ok('un-ticking is stored as a list, not "everything"',
+   Array.isArray(JSON.parse(localStorage.getItem('cadence.v1'))
+     .profiles[JSON.parse(localStorage.getItem('cadence.v1')).activeProfileId].dayTypes[0].active));
+click(qq('.ticks .tchip')[0]);
+ok('ticking them all again goes back to "everything"',
+   JSON.parse(localStorage.getItem('cadence.v1'))
+     .profiles[JSON.parse(localStorage.getItem('cadence.v1')).activeProfileId].dayTypes[0].active===null);
+
+// renaming, and the rename reaching the Day tab
+const tName=q('[data-tf="name"]'); tName.value='Weekday';
+tName.dispatchEvent(new Event('change',{bubbles:true}));
+ok('a type can be renamed', (()=>{const r=JSON.parse(localStorage.getItem('cadence.v1'));
+   return r.profiles[r.activeProfileId].dayTypes[0].name==='Weekday'})(), q('[data-tf="name"]').value);
+click(q('[data-tcolor]'));
+ok('a type can be recoloured', !!q('[data-tcolor].on'));
+click(q('[data-tdone]'));
+ok('done closes the editor', !q('[data-tf="name"]') && qq('.trow').length>=2);
+
+// the last category can't be un-ticked either
+click(qq('[data-tedit]')[1]);                       // the "Bare" type, down to one category
+while (qq('.ticks .tchip.on').length>1) click(q('.ticks .tchip.on'));
+click(q('.ticks .tchip.on'));
+ok('a type can’t be emptied', qq('.ticks .tchip.on').length===1, qq('.ticks .tchip.on').length);
+click(q('[data-tdone]'));
+
+// deleting a type leaves the days it scored alone
+tab('today');
+const keptScore=score();
+tab('settings');
+const before2=qq('.trow').length;
+click(qq('[data-tedit]')[1]); click(q('[data-tdel]'));
+ok('a type can be deleted', qq('.trow').length===before2-1, before2+' -> '+qq('.trow').length);
+tab('today');
+ok('a deleted type leaves the day’s score alone', score()===keptScore, keptScore+' -> '+score());
+
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';

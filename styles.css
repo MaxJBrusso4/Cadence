@@ -281,6 +281,9 @@ label.field > span { display: block; font-size: 12px; color: var(--muted); margi
 }
 .tchip.ghost { background: transparent; border-style: dashed; }
 
+/* Which categories a kind of day counts: tick boxes, nothing to fill in. */
+.ticks { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+
 /* Categories this kind of day doesn't count — visible, so nothing vanishes silently. */
 .offstrip {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
@@ -459,11 +462,11 @@ textarea.jnote { min-height: 340px; font-size: 15px; line-height: 1.65; }
 .months { display: flex; font-size: 10.5px; color: var(--faint); min-width: max-content; margin-bottom: 5px; }
 
 /* settings list */
-.mrow {
+.mrow, .trow {
   display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--line-soft);
 }
-.mrow:first-child { border-top: 0; }
-.mrow.editing { background: var(--panel-2); }
+.mrow:first-child, .trow:first-child { border-top: 0; }
+.mrow.editing, .trow.editing { background: var(--panel-2); }
 .editor { padding: 4px 18px 18px; display: grid; gap: 12px; grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 720px) { .editor { grid-template-columns: repeat(2, 1fr); } }
 .editor .full { grid-column: 1 / -1; }

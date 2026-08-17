@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132.
+→ 81 → 90 → 112 → 118 → 132 → 146.
 
 ## Stage 5 — Tasks (built 2026-08-12)
 
@@ -218,15 +218,25 @@ in the shape in case it is ever wanted; nothing sets it.
 
 This shrinks step 3 to rename, recolour, re-tick and delete.
 
-### Step 3 — The editor in Settings
+### Step 3 — The editor in Settings ✅
 
-Create, rename, recolour, delete types; assign default weekdays; tick which categories
-count. Checkboxes only — a type takes about fifteen seconds to make. Plus **save this day
-as a type** on the Day tab, so a type can be built by switching things off until the day
-looks right, without opening Settings at all.
+Rename, re-icon, recolour, re-tick and delete, in a **Kinds of day** card under Categories.
+Tick boxes only — no targets, no weights, nothing to fill in. Creation still happens on the
+Day tab via **save this day as a type**, which is the shorter path and was already built.
 
-Deleting a type leaves logged days untouched: they keep their snapshot and show the name
-as written.
+Built 2026-08-16. Three rules the editor enforces:
+
+- **"All of them" is stored as `active: null`, not as a full list.** Tick every category and
+  the field goes back to null, which is what makes a type keep picking up categories added
+  later. Materialising the list would quietly freeze the type at today's categories.
+- **A type can't be emptied** — un-ticking the last category is refused, the same guard the
+  Day tab uses. Every day has to score against something.
+- **Editing a type never touches logged days.** They hold their own snapshot; only
+  `resnapshotToday()` re-freezes, and only today. Deleting a type is likewise safe: the days
+  it scored keep their scores, and their chip falls back to Standard.
+
+Day-type rows use `.trow`, not `.mrow` — the category tests count `.mrow` and would
+otherwise have counted kinds of day as categories.
 
 ### Step 4 — Make it visible in the history
 
