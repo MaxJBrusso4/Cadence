@@ -608,6 +608,55 @@ ok('and counts what has been recorded', /\d+ days? recorded/.test(q('#view').tex
 ok('and nudges toward the home screen when it is only a tab',
    q('#view').textContent.includes('Add to Home'));
 
+// --- editing a category must not reach into days already logged
+tab('today');
+if (q('[data-day="today"]')) click(q('[data-day="today"]'));
+click(q('[data-day="-1"]')); click(q('[data-day="-1"]'));   // a settled past day
+if (score()==='—') click(q('.toggle'));                    // make sure it is actually logged
+const pastKey=dk(-2), pastBefore=score();
+ok('the past day under test is logged', pastBefore!=='—', pastBefore);
+
+// (a) a category added today doesn't apply backwards
+tab('settings'); click(q('[data-add]'));
+const newName=q('[data-f="name"]'); newName.value='Money positive';
+newName.dispatchEvent(new Event('change',{bubbles:true}));
+click(q('[data-done]'));
+tab('today');
+ok('a category added today leaves past days alone', score()===pastBefore,
+   pastBefore+' -> '+score());
+ok('and it counts from today', (()=>{
+  const r=JSON.parse(localStorage.getItem('cadence.v1')), p=r.profiles[r.activeProfileId];
+  const m=p.metrics.find(x=>x.name==='Money positive');
+  return m && m.createdAt===dk(0);
+})());
+
+// (b) changing a yes/no category to a 1-10 rating must not re-score what is behind it
+const boolRow=qq('.metric').find(r=>r.querySelector('.toggle'));
+const pastBoolId=boolRow.querySelector('.toggle').dataset.set;
+tab('settings');
+click(q('[data-edit="'+pastBoolId+'"]'));
+const sel=q('[data-f="type"]'); sel.value='scale'; sel.dispatchEvent(new Event('change',{bubbles:true}));
+click(q('[data-done]'));
+tab('today');
+ok('switching yes/no to a rating leaves past days alone', score()===pastBefore,
+   pastBefore+' -> '+score());
+ok('the past day kept the rules it was logged under', (()=>{
+  const r=JSON.parse(localStorage.getItem('cadence.v1')), p=r.profiles[r.activeProfileId];
+  return (p.entries[pastKey].scoring[pastBoolId]||{}).type==='bool';
+})(), JSON.stringify((JSON.parse(localStorage.getItem('cadence.v1'))
+  .profiles[JSON.parse(localStorage.getItem('cadence.v1')).activeProfileId]
+  .entries[pastKey].scoring||{})[pastBoolId]));
+
+// (c) and "counts from" can pull a category back out of the past
+tab('settings'); click(q('[data-edit="'+pastBoolId+'"]'));
+const cf=q('[data-f="createdAt"]'); cf.value=dk(0);
+cf.dispatchEvent(new Event('change',{bubbles:true}));
+click(q('[data-done]'));
+tab('today');
+ok('moving "counts from" forward drops it from earlier days', score()!==pastBefore,
+   'still '+score());
+click(q('[data-day="today"]'));
+
 ok('no uncaught errors', window.__errs.length===0, window.__errs.join(' | '));
 restore();   // hand the browser back its real data
 document.title = out.filter(l=>l.startsWith('FAIL')).length ? 'FAILURES' : 'ALL PASS';

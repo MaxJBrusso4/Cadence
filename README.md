@@ -104,6 +104,12 @@ Left to right: the two tabs you touch daily, then the three for looking back, th
 Archiving a category hides it from daily entry and scoring but keeps its history.
 Deleting removes its values from every day, permanently.
 
+**Editing a category never changes days you have already logged.** Each day remembers the
+rules it was scored under — the targets, the weights, and what kind of measurement each
+category was — so raising a goal, or switching something from yes/no to a 1–10 rating,
+applies from now on and leaves your history where it is. A category you add today starts
+counting today; **Counts from** in its editor moves that date if you want it earlier.
+
 ## Files
 
 | File | |
@@ -111,7 +117,7 @@ Deleting removes its values from every day, permanently.
 | `index.html` | page shell |
 | `styles.css` | all styling, light + dark |
 | `app.js` | state, scoring, rendering, import/export |
-| `smoke-test.html` | 175 interaction tests — open it in a browser and read the list at the bottom |
+| `smoke-test.html` | 181 interaction tests — open it in a browser and read the list at the bottom |
 | `manifest.webmanifest`, `icon-*.png` | home-screen icon and name |
 | `make-icons.py` | redraws the icons; run by hand, never needed to run the app |
 | `PLAN.md` | what's built and what's next |

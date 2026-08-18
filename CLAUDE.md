@@ -10,7 +10,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 | `index.html` | page shell: topbar, six tabs, `<main id="view">`, toast, hidden file input |
 | `app.js` | everything — state, scoring, all six views, events (~1500 lines, one IIFE) |
 | `styles.css` | all styling, light + dark via CSS custom properties |
-| `smoke-test.html` | 175 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
+| `smoke-test.html` | 181 tests, helper is `ok(label, cond)` — open in a browser, read the list at the bottom |
 | `manifest.webmanifest`, `icon-*.png`, `make-icons.py` | Add to Home Screen; icons are drawn by the script, run by hand |
 | `README.md` | user-facing docs — what the app does |
 | `PLAN.md` | build record: what's shipped, what's known-broken, ideas not taken up |
@@ -19,7 +19,7 @@ open `index.html` in a browser and it runs. Data lives in `localStorage` under `
 
 - **Verify by opening `smoke-test.html` in a browser** and confirming the count and that
   nothing failed. There is no CLI test runner. Add cases for new behaviour — the count has
-  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 → 175 across stages, so it goes in the commit.
+  grown 34 → 58 → 70 → 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 → 175 → 181 across stages, so it goes in the commit.
 - **No build, no npm, no dependencies.** Plain DOM APIs and template-literal HTML. Keep it
   that way — the whole point is that the file opens from disk.
 - **Keep `README.md` and `PLAN.md` current** in the same commit as the change. PLAN.md
@@ -74,7 +74,14 @@ rating 1–10.
   targets and weights in force when the day was logged; `scoringFor(k)` reads it and
   `dayScore()` / `ringGeometry()` both go through that, so the ring can't disagree with the
   number. Never score history off the live category list — that was the archiving bug.
-  Only `resnapshotToday()` re-freezes, and only today.
+  Only `resnapshotToday()` re-freezes, and only today. The snapshot holds `rulesOf(m)` —
+  **type and direction as well as target and weight**, because the type decides what a
+  stored value means: without it, switching a category to a 1–10 rating re-read every
+  stored `true` as a 1. `backfillScoring()` freezes any day that has no snapshot, at boot
+  and on import, and infers `bool` from a stored boolean so old days read as they meant.
+- **A category doesn't count before it existed.** `countsFrom(m)` is `m.createdAt` or the
+  profile start; one added through Settings starts today, the seeded set has always
+  existed. Editable as "Counts from" in the editor.
 - **Day types say what a day was for.** A type is a name, an icon and which categories
   count — no per-type targets or weights. Every day still scores: `setMetricOnDay()`
   refuses to drop the last category, because "all off" would be a way to delete a day from

@@ -1,6 +1,6 @@
 # Cadence — build plan
 
-**Status: six stages built and passing (175 smoke tests).** What follows is the plan they
+**Status: six stages built and passing (181 smoke tests).** What follows is the plan they
 were built from; it doubles as the record of what the app now does.
 
 Four pieces of work, in order. Nothing here needs a build step, a server, or a data
@@ -114,7 +114,7 @@ flag is a ritual and a stat, nothing more.
 4. ~~Polish pass~~
 
 Each stage landed complete and usable on its own, with new smoke-test cases: 34 → 58 → 70
-→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 → 175. Stage 6 also removed nine tests along
+→ 81 → 90 → 112 → 118 → 132 → 146 → 155 → 164 → 169 → 175 → 181. Stage 6 also removed nine tests along
 with the closing feature and added nine of its own, so one of those steps held the total
 steady while the coverage moved.
 
@@ -371,7 +371,30 @@ theory that other users need it.
      the home screen. If storage is dead — Private Browsing, or the little browser that opens
      when you tap a link inside Messages — it says so plainly and says what to do instead.
 
-6. **Decide how feedback gets back.** Still open. Nothing phones home, by design, so it is a
+6. **Category edits reached into the past** ✅ (2026-08-17). Two reports from real use, one
+   fault underneath: a category's *definition* was being applied to days logged before it
+   held.
+
+   - **Changing yes/no to a rating turned every past day into 1 out of 10.** The snapshot
+     recorded `target` and `weight` but not the *type*, and `metricScore()` reads the live
+     one. Those days had stored `true`, and `Number(true)` is 1. `rulesOf()` now freezes
+     type, direction, target and weight together — the type belongs there as much as the
+     number does, because it decides what a stored value *means*.
+   - **A newly added category applied to every day ever logged.** Days from before stage 6
+     have no snapshot and still fell back to the live list. Two fixes: categories carry
+     `createdAt` and don't count on days before it — a category added through Settings starts
+     today, while the starter set has always existed — and `backfillScoring()` freezes every
+     un-snapshotted day, once, at boot and on import.
+
+   The backfill fills gaps, it does not rewrite answers. Each day keeps the rules it is being
+   scored by right now, so no number moves — except that a stored `true` or `false` can only
+   have come from a yes/no question, whatever the category has since become, so those days
+   are put back to what they meant. That repairs the damage already done.
+
+   **Counts from** is editable per category, which is the handle for a category added before
+   this existed: set it to today and it leaves history alone.
+
+7. **Decide how feedback gets back.** Still open. Nothing phones home, by design, so it is a
    text message or nothing.
 
 **Then:** turn on GitHub Pages (needs the repo public) and send the link. One thing to do
@@ -381,9 +404,6 @@ hosted link, then use only the link.
 
 ## Known, not yet fixed
 
-- Days logged before stage 6 carry no snapshot and still fall back to live scoring, so
-  archiving can retroactively move *those* days. Backfilling would mean inventing history,
-  so they are left as they are.
 - The Trends chart at the 1y range still plots months that predate the profile — the same
   complaint the calendar had before it started at `profileStart()`.
 - Archiving every category a type counts leaves that type with nothing, and it quietly

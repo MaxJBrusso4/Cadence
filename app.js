@@ -68,6 +68,10 @@ function mk(name, icon, type, extra) {
   }, extra || {});
 }
 
+/* The day a category started counting. Categories from before this was recorded are
+   treated as having always existed, which is how they have been scored all along. */
+function countsFrom(m) { return m.createdAt || profileStart(); }
+
 /* ============================ helpers ============================ */
 
 const $  = (s, r) => (r || document).querySelector(s);
@@ -204,7 +208,8 @@ function activeFor(k) {
   const byType = (!t || !t.active)
     ? metrics().filter(m => !m.forType)
     : metrics().filter(m => t.active.indexOf(m.id) >= 0 && (!m.forType || m.forType === t.id));
-  const kept = byType.filter(m => off.indexOf(m.id) < 0);
+  const existed = byType.filter(m => countsFrom(m) <= k);
+  const kept = existed.filter(m => off.indexOf(m.id) < 0);
   return kept.length ? kept : byType;
 }
 
@@ -263,23 +268,35 @@ function scoringFor(k) {
     const m = all.find(x => x.id === id);
     if (!m) return;                    // deleted since — its values are gone too
     const s = snap[id] || {};
-    const target = s.target === undefined ? m.target : s.target;
+    const frozen = {};
+    ['type', 'goal', 'target'].forEach(f => { if (s[f] !== undefined) frozen[f] = s[f]; });
     out.push({
-      m: target === m.target ? m : Object.assign({}, m, { target }),
-      weight: Number(s.weight) || 1
+      m: Object.keys(frozen).length ? Object.assign({}, m, frozen) : m,
+      weight: Number(s.weight) || 1,
+      started: countsFrom(m) <= k
     });
   });
-  return out;
+  // Categories that only started counting later drop out — unless that would leave the
+  // day with nothing at all, and every day has to score against something.
+  const started = out.filter(r => r.started);
+  return started.length ? started : out;
 }
 
-/* Freeze the current rules onto a day: the categories its type counts, at today's
-   targets and weights. */
+/* Everything that decides what a value is worth. The type belongs here as much as the
+   target does: switching a category from yes/no to a rating changes what every stored
+   value means, and history must not move underneath it. */
+function rulesOf(m) {
+  return { type: m.type, goal: m.goal, target: m.target, weight: Number(m.weight) || 1 };
+}
+
+/* Freeze the current rules onto a day: the categories its type counts, scored the way
+   they are scored today. */
 function writeScoring(k) {
   const e = entry(k);
   if (!e) return;
   const snap = {};
-  activeFor(k).forEach(m => { snap[m.id] = { target: m.target, weight: Number(m.weight) || 1 }; });
-  if (!Object.keys(snap).length) metrics().forEach(m => { snap[m.id] = { target: m.target, weight: Number(m.weight) || 1 }; });
+  activeFor(k).forEach(m => { snap[m.id] = rulesOf(m); });
+  if (!Object.keys(snap).length) metrics().forEach(m => { snap[m.id] = rulesOf(m); });
   e.scoring = snap;
   if (!e.type) e.type = typeFor(k).id;
 }
@@ -290,6 +307,32 @@ function ensureScoring(k) { const e = entry(k); if (e && !e.scoring) writeScorin
 /* Editing categories should still reach the day in progress — but only that day. Anything
    switched off by hand lives in `entry.off`, so re-freezing here can't undo it. */
 function resnapshotToday() { const k = todayKey(); if (entry(k) && isLogged(k)) writeScoring(k); }
+
+/* Days logged before snapshots existed have no frozen rules, so they are still scored off
+   the live category list — which is how adding a category reached back into the past, and
+   how changing yes/no to a rating turned every old day into a 1 out of 10.
+
+   Freeze them, once. A stored `true` or `false` can only have come from a yes/no question,
+   whatever that category has since become, so those days are put back to what they meant.
+   Everything else keeps the rules it is being scored by right now, so no number moves
+   except the ones that were already wrong. Filling a gap, never rewriting an answer. */
+function backfillScoring() {
+  const p = profile();
+  let filled = 0;
+  Object.keys(p.entries).forEach(k => {
+    const e = p.entries[k];
+    if (e.scoring || !isLogged(k)) return;
+    const snap = {};
+    metrics().forEach(m => {
+      if (countsFrom(m) > k) return;
+      const r = rulesOf(m);
+      if (typeof e.values[m.id] === 'boolean') r.type = 'bool';
+      snap[m.id] = r;
+    });
+    if (Object.keys(snap).length) { e.scoring = snap; filled++; }
+  });
+  return filled;
+}
 
 /* Weighted day score, or null if nothing was logged that day. */
 function dayScore(k) {
@@ -1420,6 +1463,12 @@ function metricEditor(m, i) {
           <label class="field"><span>Weight (×${m.weight})</span>
             <input class="input" type="number" step="0.5" min="0.5" max="5" data-f="weight" value="${esc(m.weight)}"></label>
 
+          <label class="field"><span>Counts from</span>
+            <input class="input" type="date" data-f="createdAt" max="${todayKey()}"
+              value="${esc(countsFrom(m))}"></label>
+          <div class="field" style="align-self:end"><span class="sub">Days before this don't
+            count it — set it to today for something you've only just started tracking.</span></div>
+
           <label class="field full"><span>Color</span>
             <div class="swatches">${PALETTE.map(c =>
               `<button data-color="${c}" class="${m.color === c ? 'on' : ''}" style="background:${c}"></button>`).join('')}</div></label>
@@ -1591,6 +1640,7 @@ function onClick(ev) {
 
   if (d.add) {
     const m = mk('New category', '⭐', 'bool', { color: PALETTE[profile().metrics.length % PALETTE.length] });
+    m.createdAt = todayKey();      // added today, so it counts from today — not backwards
     profile().metrics.push(m); ui.editing = m.id; resnapshotToday(); save(); return render();
   }
   if (d.edit) { ui.editing = d.edit; return render(); }
@@ -1635,10 +1685,15 @@ function onChange(ev) {
   if (el.dataset.f && ui.editing) {
     const m = profile().metrics.find(x => x.id === ui.editing);
     const f = el.dataset.f;
-    m[f] = (f === 'target' || f === 'weight') ? (Number(el.value) || (f === 'weight' ? 1 : 0)) : el.value;
-    if (f === 'target' || f === 'weight') resnapshotToday();
+    if (f === 'createdAt') {
+      // Blank or nonsense would silently drop the category out of every day.
+      m.createdAt = /^\d{4}-\d{2}-\d{2}$/.test(el.value) ? el.value : todayKey();
+    } else {
+      m[f] = (f === 'target' || f === 'weight') ? (Number(el.value) || (f === 'weight' ? 1 : 0)) : el.value;
+    }
+    if (f === 'target' || f === 'weight' || f === 'createdAt') resnapshotToday();
     save();
-    if (f === 'type' || f === 'goal' || f === 'weight') render();   // editor layout depends on these
+    if (f === 'type' || f === 'goal' || f === 'weight' || f === 'createdAt') render();
     return;
   }
   if (el.dataset.tf && ui.editingType) {
@@ -1766,6 +1821,9 @@ $('#importFile').addEventListener('change', ev => {
       p.goal = p.goal || 75;
       db.profiles[p.id] = p;
       db.activeProfileId = p.id;
+      // An old backup arrives with no frozen rules on its days, which is exactly the
+      // state that let category edits reach into the past. Freeze them on the way in.
+      backfillScoring();
       save(); render(); toast('Profile imported');
     } catch (e) { toast('That file does not look like a Cadence backup'); }
     ev.target.value = '';
@@ -1905,6 +1963,7 @@ viewEl.addEventListener('change', onChange);
 viewEl.addEventListener('input', onInput);
 
 applyTheme();
+if (backfillScoring()) save();     // one-off, and only ever fills in what is missing
 render();
 
 /* Ask the browser to hang on to this profile's days if it ever runs short of space.
